@@ -1,0 +1,15 @@
+name: Supabase Keep-Alive Ping
+
+on:
+  schedule:
+    # Exécute ce script tous les 3 jours à 10h00 UTC
+    - cron: '0 10 */3 * *'
+  workflow_dispatch: # Permet de le lancer manuellement depuis l'onglet Actions de GitHub
+
+jobs:
+  ping-supabase:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Vercel Keep-Alive Endpoint
+        run: |
+          curl -f ${{ secrets.KEEP_ALIVE_URL }} || exit 1

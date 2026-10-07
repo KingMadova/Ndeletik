@@ -1,0 +1,50 @@
+@import "tailwindcss";
+
+@theme {
+  --color-savane-dark: #0F1115;
+  --color-savane-card: #1A1D24;
+  --color-savane-border: #2D323E;
+
+  --color-fractal-ocre: #D49A44;
+  --color-fractal-terra: #C85A47;
+  --color-fractal-or: #E8C365;
+  --color-fractal-indigo: #2B3A67;
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
+
+  --animate-pulse: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+:root {
+  --background: #0F1115;
+  --foreground: #F3F4F6;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  background-image: radial-gradient(#2D323E 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0F1115;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2D323E;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #D49A44;
+}
