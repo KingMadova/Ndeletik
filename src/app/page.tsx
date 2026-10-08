@@ -1,27 +1,30 @@
-import { Navbar } from "@/components/sections/Navbar";
-import { Hero } from "@/components/sections/Hero";
-import { Stats } from "@/components/sections/Stats";
-import { KineticBand } from "@/components/sections/KineticBand";
-import { HowItWorks } from "@/components/sections/HowItWorks";
-import { Features } from "@/components/sections/Features";
-import { Pricing } from "@/components/sections/Pricing";
-import { Faq } from "@/components/sections/Faq";
-import { CtaJoin } from "@/components/sections/CtaJoin";
-import { Footer } from "@/components/sections/Footer";
+import { Navbar } from "@/components/landing/Navbar";
+import { Hero } from "@/components/landing/Hero";
+import { Features } from "@/components/landing/Features";
+import { Benefits } from "@/components/landing/Benefits";
+import { Compare } from "@/components/landing/Compare";
+import { Steps } from "@/components/landing/Steps";
+import { Calculator } from "@/components/landing/Calculator";
+import { Pricing } from "@/components/landing/Pricing";
+import { Faq } from "@/components/landing/Faq";
+import { FinalCta, Footer } from "@/components/landing/Footer";
 
-export default function Home() {
+export default function Page() {
   return (
-    <main>
+    <>
       <Navbar />
-      <Hero />
-      <Stats />
-      <KineticBand />
-      <HowItWorks />
-      <Features />
-      <Pricing />
-      <Faq />
-      <CtaJoin />
+      <main>
+        <Hero />
+        <Features />
+        <Benefits />
+        <Compare />
+        <Steps />
+        <Calculator />
+        <Pricing />
+        <Faq />
+        <FinalCta />
+      </main>
       <Footer />
-    </main>
+    </>
   );
 }

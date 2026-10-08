@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
+import Link from "next/link";
 import { motion } from "framer-motion";
-import { Sparkles, ArrowRight } from "lucide-react";
+import { ArrowRight, ArrowLeft } from "lucide-react";
+import { supabase } from "@/lib/supabaseClient";
+import { Logo } from "@/components/landing/ui";
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
@@ -25,7 +27,6 @@ export default function AuthPage() {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       } else {
-        // 1. Créer le compte auth
         const { data: authData, error: authError } = await supabase.auth.signUp({
           email,
           password,
@@ -33,7 +34,6 @@ export default function AuthPage() {
         if (authError) throw authError;
 
         if (authData.user) {
-          // 2. Créer le profil associé
           const { error: profileError } = await supabase.from("profiles").insert({
             id: authData.user.id,
             username: username.toLowerCase().replace(/\s+/g, ""),
@@ -52,31 +52,42 @@ export default function AuthPage() {
     }
   };
 
+  const inputCls =
+    "w-full px-4 py-3 bg-bg border border-line rounded-xl text-ink placeholder:text-muted/70 focus:outline-none focus:border-fractal-ocre transition-colors";
+
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-savane-dark relative overflow-hidden">
-      {/* Effet de fond fractal subtil */}
-      <div className="absolute top-0 left-0 w-full h-full bg-fractal-gradient opacity-50 pointer-events-none" />
-      
-      <motion.div 
+    <div className="min-h-screen flex items-center justify-center p-4 bg-bg relative overflow-hidden">
+      <Link
+        href="/"
+        className="absolute top-6 left-6 flex items-center gap-2 text-sm text-muted hover:text-fractal-terra transition-colors"
+      >
+        <ArrowLeft size={16} /> Retour à l&apos;accueil
+      </Link>
+
+      <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-fractal-or/20 rounded-full blur-3xl pointer-events-none" />
+
+      <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="w-full max-w-md bg-savane-card border border-savane-border rounded-2xl p-8 shadow-2xl relative z-10"
+        className="w-full max-w-md bg-surface border border-line rounded-3xl p-8 shadow-soft relative z-10"
       >
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-fractal-ocre/20 text-fractal-ocre mb-4">
-            <Sparkles size={24} />
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-gradient-to-br from-fractal-or via-fractal-ocre to-fractal-terra mb-4 shadow-soft">
+            <Logo className="h-6 w-6 brightness-0 invert" />
           </div>
-          <h1 className="text-3xl font-display font-bold text-white mb-2">
+          <h1 className="text-3xl font-display font-extrabold text-ink mb-2">
             {isLogin ? "Bon retour" : "Rejoins Ndeletik"}
           </h1>
-          <p className="text-gray-400 text-sm">
-            {isLogin ? "Connecte-toi pour gérer tes liens" : "Crée ta page de liens unique en 2 minutes"}
+          <p className="text-sm text-muted">
+            {isLogin
+              ? "Connecte-toi pour gérer tes liens"
+              : "Crée ta page de liens unique en 2 minutes"}
           </p>
         </div>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">
+          <div className="mb-4 p-3 bg-fractal-terra/10 border border-fractal-terra/30 rounded-xl text-fractal-terra text-sm">
             {error}
           </div>
         )}
@@ -84,38 +95,42 @@ export default function AuthPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           {!isLogin && (
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">Nom d'utilisateur (unique)</label>
+              <label className="block text-sm font-medium text-ink mb-1">
+                Nom d&apos;utilisateur (unique)
+              </label>
               <input
                 type="text"
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="w-full px-4 py-3 bg-savane-dark border border-savane-border rounded-lg text-white focus:outline-none focus:border-fractal-ocre transition-colors"
+                className={inputCls}
                 placeholder="ex: konan_officiel"
               />
             </div>
           )}
-          
+
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">Email</label>
+            <label className="block text-sm font-medium text-ink mb-1">Email</label>
             <input
               type="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3 bg-savane-dark border border-savane-border rounded-lg text-white focus:outline-none focus:border-fractal-ocre transition-colors"
+              className={inputCls}
               placeholder="ton@email.com"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">Mot de passe</label>
+            <label className="block text-sm font-medium text-ink mb-1">
+              Mot de passe
+            </label>
             <input
               type="password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 bg-savane-dark border border-savane-border rounded-lg text-white focus:outline-none focus:border-fractal-ocre transition-colors"
+              className={inputCls}
               placeholder="••••••••"
             />
           </div>
@@ -125,7 +140,7 @@ export default function AuthPage() {
             whileTap={{ scale: 0.98 }}
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-fractal-terra hover:bg-fractal-terra/90 text-white font-semibold rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
+            className="w-full py-3 bg-gradient-to-r from-fractal-or via-fractal-ocre to-fractal-terra hover:opacity-90 text-white font-semibold rounded-xl flex items-center justify-center gap-2 transition disabled:opacity-50"
           >
             {loading ? "Chargement..." : isLogin ? "Se connecter" : "Créer mon compte"}
             {!loading && <ArrowRight size={18} />}
@@ -138,9 +153,11 @@ export default function AuthPage() {
               setIsLogin(!isLogin);
               setError("");
             }}
-            className="text-sm text-fractal-ocre hover:text-fractal-or transition-colors"
+            className="text-sm text-fractal-terra hover:text-fractal-ocre transition-colors"
           >
-            {isLogin ? "Pas encore de compte ? S'inscrire" : "Déjà un compte ? Se connecter"}
+            {isLogin
+              ? "Pas encore de compte ? S'inscrire"
+              : "Déjà un compte ? Se connecter"}
           </button>
         </div>
       </motion.div>

@@ -4,6 +4,10 @@ export interface Profile {
   bio: string | null;
   avatar_url: string | null;
   theme: string | null;
+  display_name: string | null;
+  banner_url: string | null;
+  country: string | null;
+  views?: number | null; //  AJOUTÉ
   created_at: string;
 }
 

@@ -1,50 +1,67 @@
 @import "tailwindcss";
 
+/* ===== Charte YEKOLA BUSINESS — tokens Tailwind v4 (@theme) ===== */
 @theme {
+  --color-bg: #FFF9F3;
+  --color-surface: #FFFFFF;
+  --color-soft: #F6F0E9;
+  --color-ink: #18181B;
+  --color-muted: #71717A;
+  --color-line: #ECE4DA;
+
+  --color-fractal-or: #F9A825;
+  --color-fractal-ocre: #FF6A1A;
+  --color-fractal-terra: #C1440E;
+  --color-fractal-creme: #FFF9F3;
+
+  /* Ancienne palette (sécurité, au cas où un fichier l'utilise encore) */
   --color-savane-dark: #0F1115;
   --color-savane-card: #1A1D24;
   --color-savane-border: #2D323E;
 
-  --color-fractal-ocre: #D49A44;
-  --color-fractal-terra: #C85A47;
-  --color-fractal-or: #E8C365;
-  --color-fractal-indigo: #2B3A67;
+  --font-display: var(--font-montserrat), system-ui, sans-serif;
+  --font-sans: var(--font-poppins), system-ui, sans-serif;
 
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
-
-  --animate-pulse: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.04), 0 8px 24px -8px rgb(193 68 14 / 0.12);
 }
 
-:root {
-  --background: #0F1115;
-  --foreground: #F3F4F6;
+/* ===== Base — mode clair YEKOLA, sans exception ===== */
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 6rem;
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  background-image: radial-gradient(#2D323E 1px, transparent 1px);
-  background-size: 24px 24px;
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
 }
 
-html {
-  scroll-behavior: smooth;
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
 }
 
-::-webkit-scrollbar {
-  width: 8px;
+:focus-visible {
+  outline: 2px solid #FF6A1A;
+  outline-offset: 3px;
+  border-radius: 12px;
 }
 
-::-webkit-scrollbar-track {
-  background: #0F1115;
+::selection {
+  background: #F9A825;
+  color: #fff;
 }
 
-::-webkit-scrollbar-thumb {
-  background: #2D323E;
-  border-radius: 4px;
-}
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: var(--color-bg); }
+::-webkit-scrollbar-thumb { background: var(--color-line); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #FF6A1A; }
 
-::-webkit-scrollbar-thumb:hover {
-  background: #D49A44;
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+  }
 }

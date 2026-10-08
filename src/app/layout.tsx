@@ -1,46 +1,41 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Outfit } from "next/font/google";
+import { Montserrat, Poppins } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({
+const montserrat = Montserrat({
   subsets: ["latin"],
-  variable: "--font-inter",
+  weight: ["600", "700", "800"],
+  variable: "--font-montserrat",
   display: "swap",
 });
 
-const outfit = Outfit({
+const poppins = Poppins({
   subsets: ["latin"],
-  variable: "--font-outfit",
+  weight: ["400", "500", "600"],
+  variable: "--font-poppins",
   display: "swap",
 });
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#0F1115",
+  themeColor: "#FFF9F3",
 };
 
 export const metadata: Metadata = {
-  title: "Ndeletik | Tes liens, ton héritage",
-  description:
-    "La page de liens nouvelle génération, inspirée par l'élégance des fractales africaines.",
+  title: "Ndeletik — Tes liens, ton héritage",
+  description: "La page de liens nouvelle génération pour les créateurs africains. Simple, élégante, conçue pour le Mobile Money.",
   openGraph: {
-    title: "Ndeletik | Tes liens, ton héritage",
-    description: "La page de liens nouvelle génération pour les créateurs africains",
+    title: "Ndeletik — Tes liens, ton héritage",
+    description: "La page de liens nouvelle génération pour les créateurs africains.",
     type: "website",
   },
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="fr" className="dark">
-      <body
-        className={`${inter.variable} ${outfit.variable} font-sans antialiased min-h-screen bg-savane-dark text-white`}
-      >
+    <html lang="fr" className={montserrat.variable + " " + poppins.variable}>
+      <body className="antialiased min-h-screen">
         {children}
       </body>
     </html>
