@@ -13,10 +13,11 @@ import { AddBlockModal } from "@/components/dashboard/AddBlockModal";
 import { useToast } from "@/components/dashboard/Toast";
 import { normalizeUrl } from "@/components/dashboard/blockMeta";
 import { UploadButton } from "@/components/dashboard/UploadButton";
+import { ShortLinkManager } from "@/components/dashboard/ShortLinkManager";
+import { OfflineBanner } from "@/components/dashboard/OfflineBanner";
 import { COUNTRY_GROUPS } from "@/lib/countries";
 import { isReserved } from "@/lib/reserved";
 
-/* Bouton primaire YEKOLA : orange plein, toujours visible sur fond crème */
 const btnPrimary =
   "bg-fractal-ocre hover:bg-fractal-terra text-white font-semibold transition-colors shadow-soft";
 
@@ -45,7 +46,6 @@ export default function Dashboard() {
       ? `${window.location.origin}/${profile.username}`
       : "";
 
-  /* ---------- chargement ---------- */
   useEffect(() => {
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -66,7 +66,6 @@ export default function Dashboard() {
     })();
   }, [router]);
 
-  /* ---------- actions liens (optimiste + rollback) ---------- */
   const rollback = useCallback(
     (msg: string) => {
       setLinks(committed.current);
@@ -104,9 +103,7 @@ export default function Dashboard() {
     try {
       const { error } = await supabase.from("links").update(updates).eq("id", id);
       if (error) throw new Error();
-      committed.current = committed.current.map((l) =>
-        l.id === id ? { ...l, ...updates } : l
-      );
+      committed.current = committed.current.map((l) => (l.id === id ? { ...l, ...updates } : l));
       toast("Enregistré");
     } catch {
       rollback("Modification échouée");
@@ -138,7 +135,6 @@ export default function Dashboard() {
     }
   };
 
-  /* ---------- profil (avec protection usernames réservés) ---------- */
   const saveProfile = async (patch: Partial<Profile>) => {
     if (!profile) return;
     if (patch.username && patch.username !== profile.username && isReserved(patch.username)) {
@@ -198,9 +194,10 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-bg text-ink">
+      <OfflineBanner />
       <div className="max-w-6xl mx-auto sm:p-6">
         <div className="bg-surface sm:rounded-3xl border border-line shadow-soft overflow-hidden pb-6">
-          {/* ===== Header ===== */}
+          {/* Header */}
           <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-line">
             <h1 className="text-xl font-display font-extrabold">Mon lien bio</h1>
             <div className="flex items-center gap-2">
@@ -234,7 +231,7 @@ export default function Dashboard() {
 
           <ProfileCard profile={profile} publicUrl={publicUrl} onCopy={copyUrl} onShare={shareUrl} />
 
-          {/* ===== Stats rapides ===== */}
+          {/* Stats rapides */}
           <div className="grid grid-cols-3 gap-3 px-4 sm:px-6 mt-6">
             <div className="bg-soft rounded-xl p-4 border border-line">
               <div className="text-xs text-muted mb-1">Liens actifs</div>
@@ -251,7 +248,6 @@ export default function Dashboard() {
           </div>
 
           <div className="grid lg:grid-cols-[1fr_360px] gap-6 px-4 sm:px-6 mt-6">
-            {/* ===== Colonne principale ===== */}
             <section className="min-w-0">
               <div role="tablist" className="flex gap-5 border-b border-line mb-5">
                 {TABS.map((t) => (
@@ -292,12 +288,7 @@ export default function Dashboard() {
                       </p>
                     </div>
                   ) : (
-                    <Reorder.Group
-                      axis="y"
-                      values={links}
-                      onReorder={setLinks}
-                      className="space-y-2.5 p-0"
-                    >
+                    <Reorder.Group axis="y" values={links} onReorder={setLinks} className="space-y-2.5 p-0">
                       {links.map((l) => (
                         <LinkItem
                           key={l.id}
@@ -309,6 +300,11 @@ export default function Dashboard() {
                       ))}
                     </Reorder.Group>
                   )}
+
+                  {/* ===== Raccourcis Ndeletik ===== */}
+                  <div className="mt-6">
+                    <ShortLinkManager userId={profile.id} plan={profile.plan ?? "free"} />
+                  </div>
                 </>
               )}
 
@@ -343,7 +339,6 @@ export default function Dashboard() {
               )}
             </section>
 
-            {/* ===== Aperçu (visible mobile + desktop) ===== */}
             <aside>
               <div className="rounded-3xl border border-line bg-surface shadow-soft lg:sticky lg:top-6">
                 <div className="flex items-center justify-between px-5 py-3.5 border-b border-line">
@@ -365,7 +360,6 @@ export default function Dashboard() {
   );
 }
 
-/* ========== Formulaire Apparence (avec SELECT pays groupé) ========== */
 function AppearanceForm({
   profile,
   onSave,
@@ -405,7 +399,9 @@ function AppearanceForm({
       onSubmit={(e) => {
         e.preventDefault();
         onSave({
-          username: f.username.trim().toLowerCase().replace(/[^a-z0-9_.-]/g, ""),
+          // Fix C : username jamais vide → on garde l'ancien si champ vidé
+          username:
+            f.username.trim().toLowerCase().replace(/[^a-z0-9_.-]/g, "") || profile.username,
           display_name: f.display_name.trim() || null,
           bio: f.bio.trim() || null,
           avatar_url: f.avatar_url.trim() || null,
@@ -415,7 +411,6 @@ function AppearanceForm({
       }}
       className="space-y-6 max-w-xl"
     >
-      {/* Upload avatar */}
       <div className="bg-soft rounded-2xl p-5 border border-line">
         <h3 className="text-sm font-semibold mb-3">Photo de profil</h3>
         <div className="flex items-center gap-4">
@@ -438,7 +433,6 @@ function AppearanceForm({
         </div>
       </div>
 
-      {/* Upload bannière */}
       <div className="bg-soft rounded-2xl p-5 border border-line">
         <h3 className="text-sm font-semibold mb-3">Bannière</h3>
         <div className="h-24 rounded-xl overflow-hidden border border-line mb-3">
@@ -452,7 +446,6 @@ function AppearanceForm({
         <UploadButton kind="banner" onDone={applyBanner} />
       </div>
 
-      {/* Informations */}
       <div className="bg-soft rounded-2xl p-5 border border-line space-y-4">
         <h3 className="text-sm font-semibold">Informations</h3>
         <label className="block">
@@ -467,8 +460,6 @@ function AppearanceForm({
           <span className="text-xs text-muted mb-1.5 block">Bio</span>
           <textarea rows={3} value={f.bio} onChange={set("bio")} className={cls} />
         </label>
-
-        {/* ===== SELECT PAYS GROUPÉ (Afrique + îles + Antilles + diaspora) ===== */}
         <label className="block">
           <span className="text-xs text-muted mb-1.5 block">Pays</span>
           <select

@@ -2,6 +2,7 @@
 
 import { Component, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { OfflineBanner } from "@/components/dashboard/OfflineBanner";
 import dynamic from "next/dynamic";
 import {
   Users, Link2, MousePointerClick, Eye, ArrowLeft, ExternalLink, Crown, Trash2, Shield,
@@ -361,6 +362,7 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen bg-bg text-ink">
+      <OfflineBanner />
       <div className="max-w-6xl mx-auto p-4 sm:p-6 space-y-6">
         {/* ===== Header ===== */}
         <div className="flex items-center justify-between">

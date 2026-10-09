@@ -74,7 +74,7 @@ export function CropModal({ imageSrc, aspect, onConfirm, onClose }: Props) {
             <button
               onClick={handleConfirm}
               disabled={loading}
-              className="px-4 py-2 rounded-lg bg-yekola-gradient hover:opacity-90 text-white text-sm font-semibold disabled:opacity-50 shadow-soft transition-all"
+              className="px-4 py-2 rounded-lg bg-fractal-ocre hover:bg-fractal-terra hover:opacity-90 text-white text-sm font-semibold disabled:opacity-50 shadow-soft transition-all"
             >
               {loading ? "Traitement..." : "Confirmer"}
             </button>

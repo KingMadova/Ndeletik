@@ -11,6 +11,7 @@ export type Profile = {
   banner_url: string | null;
   country: string | null;
   role?: string | null;
+  plan?: string | null;
   views?: number | null;
   theme?: string | null;
   created_at?: string;
@@ -71,7 +72,6 @@ export function ProfileCard({ profile, publicUrl, onCopy, onShare }: ProfileCard
   return (
     <div className="relative z-10 px-4 sm:px-6">
       <div className="-mt-6 bg-surface rounded-2xl border border-line shadow-soft p-5 flex flex-col lg:flex-row lg:items-center gap-6">
-        {/* Identité */}
         <div className="flex items-start gap-4 flex-1 min-w-0">
           <div className="-mt-12 shrink-0 rounded-full ring-4 ring-surface shadow-soft">
             <Avatar profile={profile} size={88} />
@@ -82,12 +82,13 @@ export function ProfileCard({ profile, publicUrl, onCopy, onShare }: ProfileCard
                 <Globe size={11} /> {profile.country}
               </span>
             )}
-            <h2 className="text-lg font-display font-extrabold truncate">{profile.display_name || profile.username}</h2>
+            <h2 className="text-lg font-display font-extrabold truncate">
+              {profile.display_name || profile.username}
+            </h2>
             {profile.bio && <p className="text-xs text-muted truncate">{profile.bio}</p>}
           </div>
         </div>
 
-        {/* Lien public : copier + partager uniquement */}
         <div className="lg:w-[26rem] shrink-0">
           <div className="mb-1.5 text-xs font-semibold">Lien Ndeletik</div>
           <div className="flex items-stretch gap-2">

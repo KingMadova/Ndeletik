@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { X } from "lucide-react";
+import { normalizeUrl } from "./blockMeta";
+import { validUrl } from "./LinkItem";
+import { useToast } from "./Toast";
 
 const PRESETS = [
   { label: "Site web", title: "Mon site web", prefix: "" },
@@ -20,6 +23,7 @@ type Props = {
 };
 
 export function AddBlockModal({ open, onClose, onAdd }: Props) {
+  const { toast } = useToast();
   const [title, setTitle] = useState("");
   const [url, setUrl] = useState("");
   const [busy, setBusy] = useState(false);
@@ -34,6 +38,10 @@ export function AddBlockModal({ open, onClose, onAdd }: Props) {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !url.trim() || busy) return;
+    if (!validUrl(url)) {
+      toast("URL invalide (ex : https://… ou wa.me/…)", false);
+      return;
+    }
     setBusy(true);
     const ok = await onAdd(title.trim(), url.trim());
     setBusy(false);

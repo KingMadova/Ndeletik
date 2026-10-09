@@ -3,12 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { isReserved } from "@/lib/reserved";
 import { motion } from "framer-motion";
 import { ArrowRight, ArrowLeft } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { Logo } from "@/components/landing/ui";
-
+import { isReserved } from "@/lib/reserved";
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
@@ -30,11 +29,10 @@ export default function AuthPage() {
         if (error) throw error;
       } else {
         const clean = username.toLowerCase().replace(/\s+/g, "");
-if (isReserved(clean)) {
-  setError("Ce nom d'utilisateur est réservé.");
-  setLoading(false);
-  return;
-}
+        if (isReserved(clean)) {
+          throw new Error("Ce nom d'utilisateur est réservé.");
+        }
+
         const { data: authData, error: authError } = await supabase.auth.signUp({
           email,
           password,
@@ -44,11 +42,17 @@ if (isReserved(clean)) {
         if (authData.user) {
           const { error: profileError } = await supabase.from("profiles").insert({
             id: authData.user.id,
-            username: username.toLowerCase().replace(/\s+/g, ""),
+            username: clean,
             bio: "Nouveau sur Ndeletik 🌍",
-            avatar_url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`,
+            avatar_url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${clean}`,
           });
-          if (profileError) throw profileError;
+          if (profileError) {
+            // Fix A : message humain si le pseudo existe déjà
+            if (profileError.code === "23505") {
+              throw new Error("Ce pseudo est déjà pris, choisis-en un autre.");
+            }
+            throw profileError;
+          }
         }
       }
       router.push("/dashboard");
@@ -88,9 +92,7 @@ if (isReserved(clean)) {
             {isLogin ? "Bon retour" : "Rejoins Ndeletik"}
           </h1>
           <p className="text-sm text-muted">
-            {isLogin
-              ? "Connecte-toi pour gérer tes liens"
-              : "Crée ta page de liens unique en 2 minutes"}
+            {isLogin ? "Connecte-toi pour gérer tes liens" : "Crée ta page de liens unique en 2 minutes"}
           </p>
         </div>
 
@@ -112,7 +114,7 @@ if (isReserved(clean)) {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 className={inputCls}
-                placeholder="ex: konan_officiel"
+                placeholder="ex : konan_officiel"
               />
             </div>
           )}
@@ -130,9 +132,7 @@ if (isReserved(clean)) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-ink mb-1">
-              Mot de passe
-            </label>
+            <label className="block text-sm font-medium text-ink mb-1">Mot de passe</label>
             <input
               type="password"
               required
@@ -163,9 +163,7 @@ if (isReserved(clean)) {
             }}
             className="text-sm text-fractal-terra hover:text-fractal-ocre transition-colors"
           >
-            {isLogin
-              ? "Pas encore de compte ? S'inscrire"
-              : "Déjà un compte ? Se connecter"}
+            {isLogin ? "Pas encore de compte ? S'inscrire" : "Déjà un compte ? Se connecter"}
           </button>
         </div>
       </motion.div>

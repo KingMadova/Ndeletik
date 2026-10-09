@@ -5,6 +5,17 @@ import { Reorder, useDragControls, AnimatePresence, motion } from "framer-motion
 import { GripVertical, Settings, Trash2, Check, X } from "lucide-react";
 import type { LinkItem as LinkItemType } from "@/lib/types";
 import { getBlockMeta, normalizeUrl } from "./blockMeta";
+import { useToast } from "./Toast";
+
+/* Validation d'URL : http(s), mailto, tel uniquement */
+export const validUrl = (v: string) => {
+  try {
+    const u = new URL(normalizeUrl(v));
+    return u.protocol.startsWith("http") || u.protocol === "mailto:" || u.protocol === "tel:";
+  } catch {
+    return false;
+  }
+};
 
 type Props = {
   link: LinkItemType;
@@ -15,6 +26,7 @@ type Props = {
 
 export function LinkItem({ link, onUpdate, onDelete, onDragEnd }: Props) {
   const controls = useDragControls();
+  const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [title, setTitle] = useState(link.title);
@@ -22,7 +34,14 @@ export function LinkItem({ link, onUpdate, onDelete, onDragEnd }: Props) {
   const { Icon, bg } = getBlockMeta(link.url);
 
   const save = () => {
-    if (!title.trim() || !url.trim()) return;
+    if (!title.trim() || !url.trim()) {
+      toast("Titre et URL sont requis", false);
+      return;
+    }
+    if (!validUrl(url)) {
+      toast("URL invalide (ex : https://wa.me/…)", false);
+      return;
+    }
     onUpdate(link.id, { title: title.trim(), url: normalizeUrl(url) });
     setOpen(false);
   };
@@ -37,7 +56,6 @@ export function LinkItem({ link, onUpdate, onDelete, onDragEnd }: Props) {
       className="rounded-2xl bg-surface border border-line list-none shadow-soft"
     >
       <div className="flex items-center gap-3 px-4 py-3">
-        {/* Poignée de drag */}
         <button
           onPointerDown={(e) => controls.start(e)}
           aria-label="Déplacer"
@@ -46,16 +64,14 @@ export function LinkItem({ link, onUpdate, onDelete, onDragEnd }: Props) {
           <GripVertical size={18} />
         </button>
 
-        {/* Icône de l'app */}
         <span
-          className={`h-10 w-10 rounded-xl ${bg} text-white flex items-center justify-center shrink-0 shadow-soft ${
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${bg} text-white shadow-soft ${
             link.is_active ? "" : "opacity-40"
           }`}
         >
           <Icon size={18} />
         </span>
 
-        {/* Contenu */}
         <div className={`flex-1 min-w-0 ${link.is_active ? "" : "opacity-50"}`}>
           <p className="text-sm font-semibold text-ink truncate">{link.title}</p>
           <p className="text-xs text-muted truncate">
@@ -63,12 +79,10 @@ export function LinkItem({ link, onUpdate, onDelete, onDragEnd }: Props) {
           </p>
         </div>
 
-        {/* Badge brouillon */}
         {!link.is_active && (
           <span className="text-xs text-muted bg-soft px-2 py-1 rounded-full">Brouillon</span>
         )}
 
-        {/* Bouton paramètres */}
         <button
           onClick={() => setOpen((o) => !o)}
           aria-label="Paramètres"
@@ -80,7 +94,6 @@ export function LinkItem({ link, onUpdate, onDelete, onDragEnd }: Props) {
           <Settings size={16} />
         </button>
 
-        {/* Bouton supprimer */}
         {confirming ? (
           <span className="flex items-center gap-1">
             <button
@@ -109,7 +122,6 @@ export function LinkItem({ link, onUpdate, onDelete, onDragEnd }: Props) {
         )}
       </div>
 
-      {/* Panneau d'édition */}
       <AnimatePresence initial={false}>
         {open && (
           <motion.div
@@ -147,7 +159,7 @@ export function LinkItem({ link, onUpdate, onDelete, onDragEnd }: Props) {
                 </label>
                 <button
                   onClick={save}
-                  className="rounded-xl bg-gradient-to-r from-fractal-or via-fractal-ocre to-fractal-terra hover:opacity-90 text-white text-sm font-semibold px-5 py-2.5 transition"
+                  className="rounded-xl bg-fractal-ocre hover:bg-fractal-terra text-white text-sm font-semibold px-5 py-2.5 transition-colors"
                 >
                   Enregistrer
                 </button>

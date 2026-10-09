@@ -17,7 +17,7 @@ export function FinalCta() {
 
 const cols = [
   { t: "Produit", l: [["Fonctionnalités", "#fonctionnalites"], ["Tarifs", "#tarifs"], ["Calculateur", "#calculateur"]] },
-  { t: "Ressources", l: [["FAQ", "#faq"], ["Exemple de page", "/@demo"], ["Contact", "/contact"]] },
+  { t: "Ressources", l: [["FAQ", "#faq"], ["Exemple de page", "/demo"], ["Contact", "/contact"]] },
   { t: "Légal", l: [["Confidentialité", "/confidentialite"], ["Conditions", "/conditions"]] },
 ];
 
@@ -48,7 +48,10 @@ export function Footer() {
         ))}
       </div>
       <p className="mx-auto mt-10 max-w-5xl text-xs text-muted">© {new Date().getFullYear()} Ndeletik. Tous droits réservés.</p>
-      <div aria-hidden className="pointer-events-none select-none text-center font-display text-[22vw] font-extrabold leading-[0.8] tracking-tighter text-transparent bg-gradient-to-b from-fractal-ocre/25 to-transparent bg-clip-text">
+      <div
+        aria-hidden
+        className="pointer-events-none select-none text-center font-display text-[22vw] font-extrabold leading-[0.8] tracking-tighter text-transparent bg-gradient-to-b from-fractal-ocre/25 to-transparent bg-clip-text"
+      >
         Ndeletik
       </div>
     </footer>
