@@ -1,34 +1,37 @@
 "use client";
 
-import { Component, useEffect, useState, type ReactNode } from "react";
+import { Component, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import {
-  Users, Link2, MousePointerClick, Eye, ArrowLeft, ExternalLink, Crown, Trash2, Shield, Globe2,
+  Users, Link2, MousePointerClick, Eye, ArrowLeft, ExternalLink, Crown, Trash2, Shield,
+  Globe2, Search, Download, FilterX,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useToast } from "@/components/dashboard/Toast";
 import { getCoords } from "@/lib/countryCoords";
 
-// Carte chargée en dynamique : si d3-geo manque ou crashe, le reste de la page vit.
+/* Carte chargée en dynamique : si d3-geo manque, le reste de la page vit */
 const WorldMap = dynamic(
   () => import("@/components/admin/WorldMap").then((m) => m.WorldMap),
   { ssr: false, loading: () => <div className="h-64 rounded-xl bg-soft animate-pulse" /> }
 );
 
-const PLAN_COLORS: Record<string, string> = {
-  free: "#F9A825",
-  pro: "#FF6A1A",
-  business: "#C1440E",
-};
-const PLAN_LABELS: Record<string, string> = {
-  free: "Gratuit",
-  pro: "Pro",
-  business: "Business",
-};
+const PLAN_COLORS: Record<string, string> = { free: "#F9A825", pro: "#FF6A1A", business: "#C1440E" };
+const PLAN_LABELS: Record<string, string> = { free: "Gratuit", pro: "Pro", business: "Business" };
 const PLAN_ORDER = ["free", "pro", "business"];
 
 type MapMarker = { lat: number; lon: number; plan: string; count: number; country: string };
+type SortKey = "recent" | "old" | "clicks" | "views" | "links" | "az";
+
+const SORTS: { id: SortKey; label: string }[] = [
+  { id: "recent", label: "Inscriptions récentes" },
+  { id: "old", label: "Inscriptions anciennes" },
+  { id: "clicks", label: "Plus de clics" },
+  { id: "views", label: "Plus de vues" },
+  { id: "links", label: "Plus de liens" },
+  { id: "az", label: "Username A → Z" },
+];
 
 type Row = {
   id: string;
@@ -52,7 +55,7 @@ class MapBoundary extends Component<{ children: ReactNode }, { failed: boolean }
     if (this.state.failed) {
       return (
         <div className="flex h-64 items-center justify-center rounded-xl bg-soft text-sm text-muted">
-          Carte indisponible (dépendances carte à installer : npm i d3-geo topojson-client).
+          Carte indisponible (npm i d3-geo topojson-client).
         </div>
       );
     }
@@ -126,26 +129,33 @@ function PlanDonut({ counts }: { counts: Record<string, number> }) {
   );
 }
 
+const inputCls =
+  "rounded-xl border border-line bg-bg px-3 py-2.5 text-sm text-ink focus:outline-none focus:border-fractal-ocre transition-colors";
+
 export default function AdminPage() {
   const router = useRouter();
   const { toast, node: toastNode } = useToast();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
 
+  /* ===== Filtres & tri ===== */
+  const [q, setQ] = useState("");
+  const [country, setCountry] = useState("all");
+  const [plan, setPlan] = useState("all");
+  const [role, setRole] = useState("all");
+  const [sort, setSort] = useState<SortKey>("recent");
+
   useEffect(() => {
     let alive = true;
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return router.replace("/auth");
-
       const { data: p, error } = await supabase
         .from("profiles")
         .select("role, username")
         .eq("id", session.user.id)
         .single();
-
       if (!alive) return;
-
       if (error || !p) {
         toast(`Profil introuvable : ${error?.message ?? "aucune ligne"}`, false);
         return router.replace("/dashboard");
@@ -154,13 +164,11 @@ export default function AdminPage() {
         toast(`Connecté en tant que @${p.username} (rôle : ${p.role}) — accès admin refusé`, false);
         return router.replace("/dashboard");
       }
-
       const [{ data: profiles }, { data: links }] = await Promise.all([
         supabase.from("profiles").select("id, username, display_name, country, views, role, plan, created_at"),
         supabase.from("links").select("user_id, clicks"),
       ]);
       if (!alive) return;
-
       const agg = new Map<string, { count: number; clicks: number }>();
       (links ?? []).forEach((l: any) => {
         const a = agg.get(l.user_id) ?? { count: 0, clicks: 0 };
@@ -169,13 +177,11 @@ export default function AdminPage() {
         agg.set(l.user_id, a);
       });
       setRows(
-        ((profiles ?? []) as any[])
-          .map((x) => ({
-            ...x,
-            links_count: agg.get(x.id)?.count ?? 0,
-            clicks_total: agg.get(x.id)?.clicks ?? 0,
-          }))
-          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        ((profiles ?? []) as any[]).map((x) => ({
+          ...x,
+          links_count: agg.get(x.id)?.count ?? 0,
+          clicks_total: agg.get(x.id)?.clicks ?? 0,
+        }))
       );
       setLoading(false);
     })();
@@ -184,6 +190,79 @@ export default function AdminPage() {
     };
   }, [router, toast]);
 
+  /* ===== Dérivés : options pays, filtrage, tri ===== */
+  const countryOptions = useMemo(() => {
+    const m = new Map<string, number>();
+    rows.forEach((r) => {
+      const c = r.country?.trim();
+      if (c) m.set(c, (m.get(c) ?? 0) + 1);
+    });
+    return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0], "fr"));
+  }, [rows]);
+
+  const filtered = useMemo(() => {
+    const nq = q.trim().toLowerCase();
+    const list = rows.filter((r) => {
+      if (nq && !(r.username.toLowerCase().includes(nq) || (r.display_name ?? "").toLowerCase().includes(nq))) return false;
+      if (country !== "all" && (r.country?.trim() ?? "—") !== country) return false;
+      if (plan !== "all" && r.plan !== plan) return false;
+      if (role !== "all" && r.role !== role) return false;
+      return true;
+    });
+    switch (sort) {
+      case "old":
+        return [...list].sort((a, b) => +new Date(a.created_at) - +new Date(b.created_at));
+      case "clicks":
+        return [...list].sort((a, b) => b.clicks_total - a.clicks_total);
+      case "views":
+        return [...list].sort((a, b) => (b.views ?? 0) - (a.views ?? 0));
+      case "links":
+        return [...list].sort((a, b) => b.links_count - a.links_count);
+      case "az":
+        return [...list].sort((a, b) => a.username.localeCompare(b.username, "fr"));
+      default:
+        return [...list].sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
+    }
+  }, [rows, q, country, plan, role, sort]);
+
+  const hasFilters = q !== "" || country !== "all" || plan !== "all" || role !== "all";
+  const resetFilters = () => {
+    setQ("");
+    setCountry("all");
+    setPlan("all");
+    setRole("all");
+  };
+
+  /* ===== Export CSV (BOM UTF-8 pour Excel) ===== */
+  const exportCsv = () => {
+    const header = ["username", "nom_affiche", "pays", "plan", "role", "liens", "clics", "vues", "inscrit_le"];
+    const lines = filtered.map((r) =>
+      [
+        r.username,
+        r.display_name ?? "",
+        r.country ?? "",
+        r.plan,
+        r.role,
+        r.links_count,
+        r.clicks_total,
+        r.views ?? 0,
+        new Date(r.created_at).toLocaleDateString("fr-FR"),
+      ]
+        .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+        .join(",")
+    );
+    const csv = [header.join(","), ...lines].join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `ndeletik-utilisateurs-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast(`Export CSV : ${filtered.length} ligne(s)`);
+  };
+
+  /* ===== Actions ===== */
   const toggleRole = async (r: Row) => {
     const next = r.role === "admin" ? "user" : "admin";
     const { error } = await supabase.from("profiles").update({ role: next }).eq("id", r.id);
@@ -217,6 +296,7 @@ export default function AdminPage() {
     );
   }
 
+  /* ===== Agrégats globaux (indépendants des filtres) ===== */
   const totals = rows.reduce(
     (acc, r) => ({
       users: acc.users + 1,
@@ -282,13 +362,14 @@ export default function AdminPage() {
   return (
     <div className="min-h-screen bg-bg text-ink">
       <div className="max-w-6xl mx-auto p-4 sm:p-6 space-y-6">
+        {/* ===== Header ===== */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-fractal-or via-fractal-ocre to-fractal-terra text-white shadow-soft">
               <Shield size={20} />
             </span>
             <div>
-              <h1 className="font-display text-xl font-extrabold">Backoffice YEKOLA</h1>
+              <h1 className="font-display text-xl font-extrabold">Backoffice Ndeletik</h1>
               <p className="text-xs text-muted">
                 {new Date().toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
               </p>
@@ -302,6 +383,7 @@ export default function AdminPage() {
           </a>
         </div>
 
+        {/* ===== KPIs globaux ===== */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {kpis.map((k) => (
             <div key={k.label} className="bg-surface border border-line rounded-2xl p-4 shadow-soft">
@@ -324,6 +406,7 @@ export default function AdminPage() {
           ))}
         </div>
 
+        {/* ===== Carte + donut + top pays (vue globale) ===== */}
         <div className="grid lg:grid-cols-[1.6fr_1fr] gap-4">
           <div className="bg-surface border border-line rounded-2xl p-5 shadow-soft">
             <div className="mb-4 flex items-center justify-between">
@@ -379,11 +462,70 @@ export default function AdminPage() {
           </div>
         </div>
 
+        {/* ===== Tableau utilisateurs + barre de filtres ===== */}
         <div className="bg-surface border border-line rounded-2xl shadow-soft overflow-hidden">
-          <div className="flex items-center justify-between border-b border-line px-5 py-4">
-            <h2 className="text-sm font-semibold">Utilisateurs ({rows.length})</h2>
-            <span className="text-xs text-muted">du plus récent au plus ancien</span>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4">
+            <h2 className="text-sm font-semibold">
+              Utilisateurs{" "}
+              <span className="text-muted font-normal">
+                ({filtered.length} affiché{filtered.length > 1 ? "s" : ""} sur {rows.length})
+              </span>
+            </h2>
+            <div className="flex items-center gap-2">
+              {hasFilters && (
+                <button
+                  onClick={resetFilters}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-xs text-muted hover:border-fractal-ocre hover:text-fractal-terra transition-colors"
+                >
+                  <FilterX size={12} /> Réinitialiser
+                </button>
+              )}
+              <button
+                onClick={exportCsv}
+                className="inline-flex items-center gap-1.5 rounded-full bg-fractal-ocre hover:bg-fractal-terra px-3 py-1.5 text-xs font-semibold text-white transition-colors"
+              >
+                <Download size={12} /> Export CSV
+              </button>
+            </div>
           </div>
+
+          {/* Barre de filtres */}
+          <div className="grid gap-3 border-b border-line bg-soft/40 px-5 py-4 sm:grid-cols-2 lg:grid-cols-5">
+            <label className="relative lg:col-span-2">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Rechercher un username ou un nom…"
+                className={`${inputCls} w-full pl-9`}
+              />
+            </label>
+            <select value={country} onChange={(e) => setCountry(e.target.value)} className={`${inputCls} w-full`} aria-label="Filtrer par pays">
+              <option value="all">Tous les pays</option>
+              {countryOptions.map(([c, n]) => (
+                <option key={c} value={c}>
+                  {c} ({n})
+                </option>
+              ))}
+            </select>
+            <select value={plan} onChange={(e) => setPlan(e.target.value)} className={`${inputCls} w-full`} aria-label="Filtrer par plan">
+              <option value="all">Tous les plans</option>
+              {PLAN_ORDER.map((p) => (
+                <option key={p} value={p}>
+                  {PLAN_LABELS[p]}
+                </option>
+              ))}
+            </select>
+            <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)} className={`${inputCls} w-full`} aria-label="Trier">
+              {SORTS.map((s) => (
+                <option key={s.id} value={s.id}>
+                  Tri : {s.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Table */}
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
@@ -399,71 +541,84 @@ export default function AdminPage() {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r) => (
-                  <tr key={r.id} className="border-b border-line/60 last:border-0 hover:bg-soft/60 transition-colors">
-                    <td className="px-5 py-3">
-                      <div className="font-medium">@{r.username}</div>
-                      {r.display_name && <div className="text-xs text-muted">{r.display_name}</div>}
-                    </td>
-                    <td className="px-3 py-3 text-muted">{r.country ?? "—"}</td>
-                    <td className="px-3 py-3 text-center">{r.links_count}</td>
-                    <td className="px-3 py-3 text-center">{r.clicks_total}</td>
-                    <td className="px-3 py-3">
-                      <span className="inline-flex items-center gap-1.5 text-xs font-medium">
-                        <span
-                          className="h-2 w-2 rounded-full"
-                          style={{ background: PLAN_COLORS[r.plan] ?? PLAN_COLORS.free }}
-                        />
-                        {PLAN_LABELS[r.plan] ?? r.plan}
-                      </span>
-                    </td>
-                    <td className="px-3 py-3">
-                      <span
-                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                          r.role === "admin" ? "bg-fractal-ocre/10 text-fractal-terra" : "bg-soft text-muted"
-                        }`}
+                {filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="px-5 py-12 text-center">
+                      <p className="text-sm font-semibold mb-1">Aucun utilisateur ne correspond</p>
+                      <p className="text-xs text-muted mb-3">Modifie ta recherche ou tes filtres.</p>
+                      <button
+                        onClick={resetFilters}
+                        className="rounded-full border border-line px-4 py-2 text-xs text-muted hover:border-fractal-ocre hover:text-fractal-terra transition-colors"
                       >
-                        {r.role === "admin" && <Crown size={11} />}
-                        {r.role}
-                      </span>
-                    </td>
-                    <td className="px-3 py-3 text-xs text-muted">
-                      {new Date(r.created_at).toLocaleDateString("fr-FR")}
-                    </td>
-                    <td className="px-5 py-3">
-                      <div className="flex items-center justify-end gap-1">
-                        <a
-                          href={`/${r.username}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          aria-label={`Voir la page de ${r.username}`}
-                          className="p-1.5 rounded-md text-muted hover:bg-soft hover:text-fractal-terra transition-colors"
-                        >
-                          <ExternalLink size={15} />
-                        </a>
-                        <button
-                          onClick={() => toggleRole(r)}
-                          aria-label="Changer le rôle"
-                          className="p-1.5 rounded-md text-muted hover:bg-soft hover:text-fractal-ocre transition-colors"
-                        >
-                          <Crown size={15} />
-                        </button>
-                        <button
-                          onClick={() => deleteUser(r)}
-                          aria-label="Supprimer"
-                          className="p-1.5 rounded-md text-muted hover:bg-red-50 hover:text-red-600 transition-colors"
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      </div>
+                        Réinitialiser les filtres
+                      </button>
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  filtered.map((r) => (
+                    <tr key={r.id} className="border-b border-line/60 last:border-0 hover:bg-soft/60 transition-colors">
+                      <td className="px-5 py-3">
+                        <div className="font-medium">@{r.username}</div>
+                        {r.display_name && <div className="text-xs text-muted">{r.display_name}</div>}
+                      </td>
+                      <td className="px-3 py-3 text-muted">{r.country ?? "—"}</td>
+                      <td className="px-3 py-3 text-center">{r.links_count}</td>
+                      <td className="px-3 py-3 text-center">{r.clicks_total}</td>
+                      <td className="px-3 py-3">
+                        <span className="inline-flex items-center gap-1.5 text-xs font-medium">
+                          <span className="h-2 w-2 rounded-full" style={{ background: PLAN_COLORS[r.plan] ?? PLAN_COLORS.free }} />
+                          {PLAN_LABELS[r.plan] ?? r.plan}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3">
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                            r.role === "admin" ? "bg-fractal-ocre/10 text-fractal-terra" : "bg-soft text-muted"
+                          }`}
+                        >
+                          {r.role === "admin" && <Crown size={11} />}
+                          {r.role}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 text-xs text-muted">
+                        {new Date(r.created_at).toLocaleDateString("fr-FR")}
+                      </td>
+                      <td className="px-5 py-3">
+                        <div className="flex items-center justify-end gap-1">
+                          <a
+                            href={`/${r.username}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label={`Voir la page de ${r.username}`}
+                            className="p-1.5 rounded-md text-muted hover:bg-soft hover:text-fractal-terra transition-colors"
+                          >
+                            <ExternalLink size={15} />
+                          </a>
+                          <button
+                            onClick={() => toggleRole(r)}
+                            aria-label="Changer le rôle"
+                            className="p-1.5 rounded-md text-muted hover:bg-soft hover:text-fractal-ocre transition-colors"
+                          >
+                            <Crown size={15} />
+                          </button>
+                          <button
+                            onClick={() => deleteUser(r)}
+                            aria-label="Supprimer"
+                            className="p-1.5 rounded-md text-muted hover:bg-red-50 hover:text-red-600 transition-colors"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
         </div>
 
+        {/* ===== Revenus (placeholder pré-Sebpay) ===== */}
         <div className="rounded-2xl border border-dashed border-line bg-soft/50 p-6 text-center">
           <p className="text-sm font-semibold">Revenus Mobile Money</p>
           <p className="mt-1 text-xs text-muted">

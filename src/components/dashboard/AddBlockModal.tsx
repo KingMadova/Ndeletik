@@ -1,4 +1,5 @@
 "use client";
+
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { X } from "lucide-react";
@@ -47,7 +48,7 @@ export function AddBlockModal({ open, onClose, onAdd }: Props) {
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 p-4"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -62,7 +63,7 @@ export function AddBlockModal({ open, onClose, onAdd }: Props) {
             role="dialog"
             aria-modal="true"
             aria-label="Ajouter un bloc"
-            className="w-full max-w-md rounded-2xl bg-surface p-5 shadow-soft border border-line"
+            className="w-full max-w-md rounded-2xl bg-surface p-5 shadow-xl border border-line"
           >
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-base font-display font-bold text-ink">Ajouter un bloc</h3>
@@ -98,18 +99,18 @@ export function AddBlockModal({ open, onClose, onAdd }: Props) {
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Titre (ex : Mon WhatsApp)"
-                className="rounded-lg border border-line bg-bg px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-fractal-ocre/40"
+                className="rounded-xl border border-line bg-bg px-4 py-2.5 text-sm text-ink focus:outline-none focus:border-fractal-ocre"
               />
               <input
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
                 placeholder="URL ou email"
-                className="rounded-lg border border-line bg-bg px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-fractal-ocre/40"
+                className="rounded-xl border border-line bg-bg px-4 py-2.5 text-sm text-ink focus:outline-none focus:border-fractal-ocre"
               />
               <button
                 type="submit"
                 disabled={busy || !title.trim() || !url.trim()}
-                className="rounded-lg bg-yekola-gradient hover:opacity-90 disabled:opacity-50 text-white text-sm font-semibold py-2.5 shadow-soft transition-all"
+                className="rounded-xl bg-fractal-ocre hover:bg-fractal-terra disabled:opacity-40 text-white text-sm font-semibold py-3 transition-colors"
               >
                 {busy ? "Ajout…" : "Ajouter le bloc"}
               </button>

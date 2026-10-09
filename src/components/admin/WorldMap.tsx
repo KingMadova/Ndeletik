@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+
+import { useEffect, useMemo, useRef, useState } from "react";
 import { geoEquirectangular, geoPath } from "d3-geo";
 import { feature } from "topojson-client";
 
@@ -26,9 +27,17 @@ export type MapMarker = {
 const WIDTH = 800;
 const HEIGHT = 400;
 
+type HoverState = {
+  x: number;
+  y: number;
+  marker: MapMarker;
+};
+
 export function WorldMap({ markers }: { markers: MapMarker[] }) {
   const [geographies, setGeographies] = useState<any[]>([]);
   const [failed, setFailed] = useState(false);
+  const [hover, setHover] = useState<HoverState | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetch("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json")
@@ -53,6 +62,28 @@ export function WorldMap({ markers }: { markers: MapMarker[] }) {
   );
   const path = useMemo(() => geoPath(projection), [projection]);
 
+  const handleMarkerEnter = (e: React.MouseEvent<SVGCircleElement>, marker: MapMarker) => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setHover({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+      marker,
+    });
+  };
+
+  const handleMarkerMove = (e: React.MouseEvent<SVGCircleElement>, marker: MapMarker) => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setHover({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+      marker,
+    });
+  };
+
+  const handleMarkerLeave = () => setHover(null);
+
   if (failed) {
     return (
       <div className="flex h-64 items-center justify-center rounded-xl bg-soft text-sm text-muted">
@@ -62,7 +93,7 @@ export function WorldMap({ markers }: { markers: MapMarker[] }) {
   }
 
   return (
-    <div className="relative">
+    <div ref={containerRef} className="relative">
       <svg
         viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
         className="w-full h-auto"
@@ -95,16 +126,70 @@ export function WorldMap({ markers }: { markers: MapMarker[] }) {
           const [x, y] = xy;
           const r = 3 + Math.min(7, Math.sqrt(m.count) * 1.4);
           const color = PLAN_COLORS[m.plan] ?? PLAN_COLORS.free;
+          const isActive = hover?.marker === m;
           return (
             <g key={i}>
-              <circle cx={x} cy={y} r={r * 2} fill={color} opacity={0.18} />
-              <circle cx={x} cy={y} r={r} fill={color} opacity={0.9} stroke="#FFFFFF" strokeWidth={1.2}>
-                <title>{`${m.country} — ${PLAN_LABELS[m.plan]} : ${m.count}`}</title>
-              </circle>
+              <circle
+                cx={x}
+                cy={y}
+                r={r * (isActive ? 2.5 : 2)}
+                fill={color}
+                opacity={isActive ? 0.3 : 0.18}
+                className="transition-all duration-200"
+              />
+              <circle
+                cx={x}
+                cy={y}
+                r={r * (isActive ? 1.3 : 1)}
+                fill={color}
+                opacity={0.9}
+                stroke="#FFFFFF"
+                strokeWidth={1.2}
+                className="cursor-pointer transition-all duration-200"
+                onMouseEnter={(e) => handleMarkerEnter(e, m)}
+                onMouseMove={(e) => handleMarkerMove(e, m)}
+                onMouseLeave={handleMarkerLeave}
+              />
             </g>
           );
         })}
       </svg>
+
+      {/* Tooltip custom stylé YEKOLA */}
+      {hover && (
+        <div
+          className="pointer-events-none absolute z-10 rounded-xl border border-line bg-surface shadow-soft px-3 py-2.5 min-w-[180px]"
+          style={{
+            left: `${hover.x + 12}px`,
+            top: `${hover.y + 12}px`,
+            transform: hover.x > 600 ? "translateX(-110%)" : "none",
+          }}
+        >
+          <div className="flex items-center gap-2 mb-1">
+            <span
+              className="h-2.5 w-2.5 rounded-full"
+              style={{ background: PLAN_COLORS[hover.marker.plan] }}
+            />
+            <span className="text-sm font-semibold text-ink">{hover.marker.country}</span>
+          </div>
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted">Plan :</span>
+            <span
+              className="rounded-full px-2 py-0.5 font-medium"
+              style={{
+                background: `${PLAN_COLORS[hover.marker.plan]}20`,
+                color: PLAN_COLORS[hover.marker.plan],
+              }}
+            >
+              {PLAN_LABELS[hover.marker.plan]}
+            </span>
+          </div>
+          <div className="flex items-center justify-between text-xs mt-1">
+            <span className="text-muted">Abonnés :</span>
+            <span className="font-bold text-ink">{hover.marker.count}</span>
+          </div>
+        </div>
+      )}
 
       {/* Légende */}
       <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-muted">

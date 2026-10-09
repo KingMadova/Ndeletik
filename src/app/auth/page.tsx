@@ -3,10 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { isReserved } from "@/lib/reserved";
 import { motion } from "framer-motion";
 import { ArrowRight, ArrowLeft } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { Logo } from "@/components/landing/ui";
+
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
@@ -27,6 +29,12 @@ export default function AuthPage() {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       } else {
+        const clean = username.toLowerCase().replace(/\s+/g, "");
+if (isReserved(clean)) {
+  setError("Ce nom d'utilisateur est réservé.");
+  setLoading(false);
+  return;
+}
         const { data: authData, error: authError } = await supabase.auth.signUp({
           email,
           password,

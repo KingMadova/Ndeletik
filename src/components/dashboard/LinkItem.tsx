@@ -1,4 +1,5 @@
 "use client";
+
 import { useState } from "react";
 import { Reorder, useDragControls, AnimatePresence, motion } from "framer-motion";
 import { GripVertical, Settings, Trash2, Check, X } from "lucide-react";
@@ -32,55 +33,67 @@ export function LinkItem({ link, onUpdate, onDelete, onDragEnd }: Props) {
       dragListener={false}
       dragControls={controls}
       onDragEnd={onDragEnd}
-      whileDrag={{ scale: 1.02, boxShadow: "0 10px 30px rgba(193,68,14,.2)" }}
-      className="rounded-xl bg-surface border border-line list-none shadow-soft"
+      whileDrag={{ scale: 1.02, boxShadow: "0 10px 30px rgba(193,68,14,.18)" }}
+      className="rounded-2xl bg-surface border border-line list-none shadow-soft"
     >
-      <div className="flex items-center gap-3 px-3 py-3">
+      <div className="flex items-center gap-3 px-4 py-3">
+        {/* Poignée de drag */}
         <button
           onPointerDown={(e) => controls.start(e)}
           aria-label="Déplacer"
-          className="touch-none cursor-grab active:cursor-grabbing text-muted hover:text-ink transition-colors"
+          className="touch-none cursor-grab active:cursor-grabbing text-line hover:text-muted transition-colors"
         >
           <GripVertical size={18} />
         </button>
 
-        <span className={`h-9 w-9 rounded-lg ${bg} text-white flex items-center justify-center shrink-0 ${link.is_active ? "" : "opacity-40"}`}>
-          <Icon size={17} />
+        {/* Icône de l'app */}
+        <span
+          className={`h-10 w-10 rounded-xl ${bg} text-white flex items-center justify-center shrink-0 shadow-soft ${
+            link.is_active ? "" : "opacity-40"
+          }`}
+        >
+          <Icon size={18} />
         </span>
 
+        {/* Contenu */}
         <div className={`flex-1 min-w-0 ${link.is_active ? "" : "opacity-50"}`}>
-          <p className="text-sm font-medium text-ink truncate">{link.title}</p>
+          <p className="text-sm font-semibold text-ink truncate">{link.title}</p>
           <p className="text-xs text-muted truncate">
             {link.clicks} clics · {link.url.replace(/^https?:\/\//, "")}
           </p>
         </div>
 
+        {/* Badge brouillon */}
         {!link.is_active && (
-          <span className="text-xs text-muted px-2 py-0.5 rounded-full bg-soft">Brouillon</span>
+          <span className="text-xs text-muted bg-soft px-2 py-1 rounded-full">Brouillon</span>
         )}
 
+        {/* Bouton paramètres */}
         <button
           onClick={() => setOpen((o) => !o)}
           aria-label="Paramètres"
           aria-expanded={open}
-          className={`p-1.5 rounded-md hover:bg-soft transition-colors ${open ? "text-fractal-ocre" : "text-muted hover:text-ink"}`}
+          className={`p-2 rounded-lg transition-colors ${
+            open ? "bg-fractal-ocre/10 text-fractal-ocre" : "hover:bg-soft text-muted"
+          }`}
         >
           <Settings size={16} />
         </button>
 
+        {/* Bouton supprimer */}
         {confirming ? (
           <span className="flex items-center gap-1">
             <button
               onClick={() => onDelete(link.id)}
               aria-label="Confirmer"
-              className="p-1.5 rounded-md bg-red-50 text-red-600 hover:bg-red-100"
+              className="p-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
             >
               <Check size={16} />
             </button>
             <button
               onClick={() => setConfirming(false)}
               aria-label="Annuler"
-              className="p-1.5 rounded-md hover:bg-soft text-muted"
+              className="p-2 rounded-lg hover:bg-soft text-muted transition-colors"
             >
               <X size={16} />
             </button>
@@ -89,13 +102,14 @@ export function LinkItem({ link, onUpdate, onDelete, onDragEnd }: Props) {
           <button
             onClick={() => setConfirming(true)}
             aria-label="Supprimer"
-            className="p-1.5 rounded-md hover:bg-red-50 text-muted hover:text-red-600 transition-colors"
+            className="p-2 rounded-lg hover:bg-red-50 text-muted hover:text-red-600 transition-colors"
           >
             <Trash2 size={16} />
           </button>
         )}
       </div>
 
+      {/* Panneau d'édition */}
       <AnimatePresence initial={false}>
         {open && (
           <motion.div
@@ -104,36 +118,36 @@ export function LinkItem({ link, onUpdate, onDelete, onDragEnd }: Props) {
             exit={{ height: 0, opacity: 0 }}
             className="overflow-hidden"
           >
-            <div className="px-4 pb-4 pt-1 grid gap-3 border-t border-line">
-              <label className="grid gap-1 text-xs text-muted">
-                Titre
+            <div className="px-4 pb-4 pt-3 grid gap-3 border-t border-line bg-soft/30">
+              <label className="block">
+                <span className="text-xs text-muted mb-1.5 block">Titre</span>
                 <input
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="rounded-lg border border-line bg-bg px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-fractal-ocre/40"
+                  className="w-full rounded-xl border border-line bg-bg px-4 py-2.5 text-sm text-ink focus:outline-none focus:border-fractal-ocre transition-colors"
                 />
               </label>
-              <label className="grid gap-1 text-xs text-muted">
-                URL
+              <label className="block">
+                <span className="text-xs text-muted mb-1.5 block">URL</span>
                 <input
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
-                  className="rounded-lg border border-line bg-bg px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-fractal-ocre/40"
+                  className="w-full rounded-xl border border-line bg-bg px-4 py-2.5 text-sm text-ink focus:outline-none focus:border-fractal-ocre transition-colors"
                 />
               </label>
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between pt-2">
                 <label className="flex items-center gap-2 text-sm text-ink cursor-pointer">
                   <input
                     type="checkbox"
                     checked={link.is_active}
                     onChange={(e) => onUpdate(link.id, { is_active: e.target.checked })}
-                    className="h-4 w-4"
+                    className="h-4 w-4 accent-fractal-ocre rounded"
                   />
                   Publié
                 </label>
                 <button
                   onClick={save}
-                  className="rounded-lg bg-yekola-gradient hover:opacity-90 text-white text-sm font-semibold px-4 py-2 shadow-soft transition-all"
+                  className="rounded-xl bg-gradient-to-r from-fractal-or via-fractal-ocre to-fractal-terra hover:opacity-90 text-white text-sm font-semibold px-5 py-2.5 transition"
                 >
                   Enregistrer
                 </button>

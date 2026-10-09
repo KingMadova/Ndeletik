@@ -2,9 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { Reorder } from "framer-motion";
-import { LogOut, Plus, MoreHorizontal, Link2, Eye, Sparkles, ArrowLeft, Shield } from "lucide-react";
+import { LogOut, Plus, MoreHorizontal, Link2, Eye, User, Palette, BarChart3 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import type { LinkItem as LinkItemType } from "@/lib/types";
 import { LinkItem } from "@/components/dashboard/LinkItem";
@@ -14,12 +13,18 @@ import { AddBlockModal } from "@/components/dashboard/AddBlockModal";
 import { useToast } from "@/components/dashboard/Toast";
 import { normalizeUrl } from "@/components/dashboard/blockMeta";
 import { UploadButton } from "@/components/dashboard/UploadButton";
+import { COUNTRY_GROUPS } from "@/lib/countries";
+import { isReserved } from "@/lib/reserved";
+
+/* Bouton primaire YEKOLA : orange plein, toujours visible sur fond crème */
+const btnPrimary =
+  "bg-fractal-ocre hover:bg-fractal-terra text-white font-semibold transition-colors shadow-soft";
 
 type Tab = "lynk" | "appearance" | "statistic";
-const TABS: { id: Tab; label: string }[] = [
-  { id: "lynk", label: "Liens" },
-  { id: "appearance", label: "Apparence" },
-  { id: "statistic", label: "Statistiques" },
+const TABS: { id: Tab; label: string; icon: any }[] = [
+  { id: "lynk", label: "Liens", icon: Link2 },
+  { id: "appearance", label: "Apparence", icon: Palette },
+  { id: "statistic", label: "Statistiques", icon: BarChart3 },
 ];
 
 export default function Dashboard() {
@@ -40,6 +45,7 @@ export default function Dashboard() {
       ? `${window.location.origin}/${profile.username}`
       : "";
 
+  /* ---------- chargement ---------- */
   useEffect(() => {
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -47,7 +53,11 @@ export default function Dashboard() {
       const uid = session.user.id;
       const [{ data: p }, { data: l }] = await Promise.all([
         supabase.from("profiles").select("*").eq("id", uid).single(),
-        supabase.from("links").select("*").eq("user_id", uid).order("display_order", { ascending: true }),
+        supabase
+          .from("links")
+          .select("*")
+          .eq("user_id", uid)
+          .order("display_order", { ascending: true }),
       ]);
       if (p) setProfile(p as Profile);
       setLinks((l ?? []) as LinkItemType[]);
@@ -56,6 +66,7 @@ export default function Dashboard() {
     })();
   }, [router]);
 
+  /* ---------- actions liens (optimiste + rollback) ---------- */
   const rollback = useCallback(
     (msg: string) => {
       setLinks(committed.current);
@@ -127,14 +138,19 @@ export default function Dashboard() {
     }
   };
 
+  /* ---------- profil (avec protection usernames réservés) ---------- */
   const saveProfile = async (patch: Partial<Profile>) => {
     if (!profile) return;
+    if (patch.username && patch.username !== profile.username && isReserved(patch.username)) {
+      toast("Ce nom d'utilisateur est réservé", false);
+      return;
+    }
     const prev = profile;
     setProfile({ ...profile, ...patch });
     const { error } = await supabase.from("profiles").update(patch).eq("id", profile.id);
     if (error) {
       setProfile(prev);
-      toast("Profil non enregistré", false);
+      toast(`Profil non enregistré : ${error.message}`, false);
     } else toast("Profil enregistré");
   };
 
@@ -150,7 +166,10 @@ export default function Dashboard() {
   const shareUrl = async () => {
     if (navigator.share) {
       try {
-        await navigator.share({ title: profile?.display_name || profile?.username, url: publicUrl });
+        await navigator.share({
+          title: profile?.display_name || profile?.username,
+          url: publicUrl,
+        });
       } catch {}
     } else copyUrl();
   };
@@ -162,12 +181,12 @@ export default function Dashboard() {
 
   if (loading || !profile) {
     return (
-      <div className="min-h-screen bg-bg p-6">
-        <div className="max-w-6xl mx-auto space-y-4 animate-pulse">
-          <div className="h-8 w-40 rounded bg-soft" />
-          <div className="h-36 rounded-2xl bg-soft" />
-          <div className="h-24 rounded-2xl bg-soft" />
-          <div className="h-64 rounded-2xl bg-soft" />
+      <div className="min-h-screen bg-bg p-6 animate-pulse">
+        <div className="max-w-6xl mx-auto space-y-4">
+          <div className="h-8 w-40 rounded bg-line/70" />
+          <div className="h-36 rounded-2xl bg-line/70" />
+          <div className="h-24 rounded-2xl bg-line/70" />
+          <div className="h-64 rounded-2xl bg-line/70" />
         </div>
       </div>
     );
@@ -175,41 +194,65 @@ export default function Dashboard() {
 
   const totalClicks = links.reduce((s, l) => s + l.clicks, 0);
   const maxClicks = Math.max(1, ...links.map((l) => l.clicks));
+  const activeLinks = links.filter((l) => l.is_active).length;
 
   return (
     <div className="min-h-screen bg-bg text-ink">
       <div className="max-w-6xl mx-auto sm:p-6">
-        <div className="bg-surface sm:rounded-2xl shadow-soft overflow-hidden pb-6 border border-line">
-          {/* Header */}
+        <div className="bg-surface sm:rounded-3xl border border-line shadow-soft overflow-hidden pb-6">
+          {/* ===== Header ===== */}
           <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-line">
-            <div className="flex items-center gap-3">
-              <Link href="/" className="flex items-center gap-1 text-sm text-muted hover:text-fractal-ocre transition-colors">
-                <ArrowLeft size={14} /> Accueil
-              </Link>
-              <h1 className="text-xl font-display font-bold">Mon lien bio</h1>
+            <h1 className="text-xl font-display font-extrabold">Mon lien bio</h1>
+            <div className="flex items-center gap-2">
+              <a
+                href={`/${profile.username}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 rounded-full border border-line text-sm text-muted hover:border-fractal-ocre hover:text-fractal-terra transition-colors"
+              >
+                <Eye size={14} /> Voir ma page
+              </a>
+              <button
+                onClick={() => setTab("appearance")}
+                aria-label="Éditer mon profil"
+                title="Éditer mon profil"
+                className="p-2 rounded-lg text-muted hover:bg-soft hover:text-fractal-ocre transition-colors"
+              >
+                <User size={18} />
+              </button>
+              <button
+                onClick={logout}
+                aria-label="Déconnexion"
+                className="p-2 rounded-lg text-muted hover:bg-soft hover:text-fractal-terra transition-colors"
+              >
+                <LogOut size={18} />
+              </button>
             </div>
-            <button
-              onClick={logout}
-              aria-label="Déconnexion"
-              className="p-2 rounded-lg text-muted hover:text-ink hover:bg-soft transition-colors"
-            >
-              <LogOut size={18} />
-            </button>
           </div>
 
           <Banner url={profile.banner_url} className="h-32 sm:h-40" />
 
-          <ProfileCard
-            profile={profile}
-            publicUrl={publicUrl}
-            onCopy={copyUrl}
-            onShare={shareUrl}
-            onCustomize={() => setTab("appearance")}
-          />
+          <ProfileCard profile={profile} publicUrl={publicUrl} onCopy={copyUrl} onShare={shareUrl} />
+
+          {/* ===== Stats rapides ===== */}
+          <div className="grid grid-cols-3 gap-3 px-4 sm:px-6 mt-6">
+            <div className="bg-soft rounded-xl p-4 border border-line">
+              <div className="text-xs text-muted mb-1">Liens actifs</div>
+              <div className="text-2xl font-display font-bold text-fractal-ocre">{activeLinks}</div>
+            </div>
+            <div className="bg-soft rounded-xl p-4 border border-line">
+              <div className="text-xs text-muted mb-1">Clics totaux</div>
+              <div className="text-2xl font-display font-bold text-fractal-terra">{totalClicks}</div>
+            </div>
+            <div className="bg-soft rounded-xl p-4 border border-line">
+              <div className="text-xs text-muted mb-1">Vues de page</div>
+              <div className="text-2xl font-display font-bold text-fractal-or">{profile.views ?? 0}</div>
+            </div>
+          </div>
 
           <div className="grid lg:grid-cols-[1fr_360px] gap-6 px-4 sm:px-6 mt-6">
+            {/* ===== Colonne principale ===== */}
             <section className="min-w-0">
-              {/* Onglets */}
               <div role="tablist" className="flex gap-5 border-b border-line mb-5">
                 {TABS.map((t) => (
                   <button
@@ -217,12 +260,13 @@ export default function Dashboard() {
                     role="tab"
                     aria-selected={tab === t.id}
                     onClick={() => setTab(t.id)}
-                    className={`pb-2.5 text-sm -mb-px border-b-2 transition-colors font-medium ${
+                    className={`pb-2.5 text-sm -mb-px border-b-2 transition-colors flex items-center gap-1.5 ${
                       tab === t.id
-                        ? "border-fractal-ocre text-fractal-terra"
+                        ? "border-fractal-ocre text-fractal-terra font-semibold"
                         : "border-transparent text-muted hover:text-ink"
                     }`}
                   >
+                    <t.icon size={14} />
                     {t.label}
                   </button>
                 ))}
@@ -230,23 +274,30 @@ export default function Dashboard() {
 
               {tab === "lynk" && (
                 <>
-                  <p className="text-sm font-semibold mb-3">
-                    Liste des blocs ({links.length})
-                  </p>
+                  <p className="text-sm font-semibold mb-3">Liste des blocs ({links.length})</p>
+
                   <button
                     onClick={() => setModal(true)}
-                    className="w-full flex items-center justify-center gap-2 rounded-xl bg-yekola-gradient hover:opacity-90 text-white text-sm font-semibold py-3.5 transition-all shadow-soft hover:shadow-glow"
+                    className={`w-full flex items-center justify-center gap-2 rounded-2xl py-4 text-sm border border-fractal-terra/20 mb-4 ${btnPrimary}`}
                   >
-                    <Plus size={16} /> Ajouter un bloc
+                    <Plus size={18} /> Ajouter un nouveau lien
                   </button>
+
                   {links.length === 0 ? (
-                    <div className="mt-4 text-center py-14 rounded-xl border border-dashed border-line bg-soft/50">
-                      <Link2 size={36} className="mx-auto text-muted mb-2" />
-                      <p className="text-sm text-muted">Aucun bloc pour le moment.</p>
-                      <p className="text-xs text-muted/70 mt-1">Ajoute ton premier lien pour remplir ta page.</p>
+                    <div className="text-center py-14 rounded-2xl border-2 border-dashed border-line">
+                      <Link2 size={48} className="mx-auto text-line mb-3" />
+                      <p className="text-sm font-semibold mb-1">Aucun lien pour le moment</p>
+                      <p className="text-xs text-muted">
+                        Clique sur le bouton orange ci-dessus pour ajouter ton premier lien.
+                      </p>
                     </div>
                   ) : (
-                    <Reorder.Group axis="y" values={links} onReorder={setLinks} className="mt-4 space-y-2.5 p-0">
+                    <Reorder.Group
+                      axis="y"
+                      values={links}
+                      onReorder={setLinks}
+                      className="space-y-2.5 p-0"
+                    >
                       {links.map((l) => (
                         <LinkItem
                           key={l.id}
@@ -261,54 +312,45 @@ export default function Dashboard() {
                 </>
               )}
 
-              {tab === "appearance" && (
-                <AppearanceForm profile={profile} onSave={saveProfile} />
-              )}
+              {tab === "appearance" && <AppearanceForm profile={profile} onSave={saveProfile} />}
 
               {tab === "statistic" && (
                 <div>
-                  <div className="grid grid-cols-2 gap-4 mb-6">
-                    <div className="bg-soft rounded-xl p-4 border border-line">
-                      <div className="text-xs text-muted mb-1 flex items-center gap-1">
-                        <Eye size={14} className="text-fractal-ocre" /> Vues de page
-                      </div>
-                      <div className="text-2xl font-display font-bold text-ink">
-                        {profile.views ?? 0}
-                      </div>
-                    </div>
-                    <div className="bg-soft rounded-xl p-4 border border-line">
-                      <div className="text-xs text-muted mb-1">Clics totaux</div>
-                      <div className="text-2xl font-display font-bold text-fractal-terra">{totalClicks}</div>
-                    </div>
+                  <div className="bg-soft rounded-2xl p-5 border border-line mb-4">
+                    <div className="text-xs text-muted mb-1">Clics totaux</div>
+                    <div className="text-3xl font-display font-bold">{totalClicks}</div>
                   </div>
-                  <p className="text-sm font-semibold text-ink mb-3">Détails par lien</p>
+                  <p className="text-sm font-semibold mb-3">Détails par lien</p>
                   <ul className="space-y-3">
-                    {[...links].sort((a, b) => b.clicks - a.clicks).map((l) => (
-                      <li key={l.id}>
-                        <div className="flex justify-between text-sm mb-1">
-                          <span className="truncate pr-3 text-ink">{l.title}</span>
-                          <span className="text-muted font-medium">{l.clicks}</span>
-                        </div>
-                        <div className="h-2 rounded-full bg-soft">
-                          <div
-                            className="h-2 rounded-full bg-yekola-gradient transition-all duration-500"
-                            style={{ width: `${(l.clicks / maxClicks) * 100}%` }}
-                          />
-                        </div>
-                      </li>
-                    ))}
+                    {[...links]
+                      .sort((a, b) => b.clicks - a.clicks)
+                      .map((l) => (
+                        <li key={l.id}>
+                          <div className="flex justify-between text-sm mb-1">
+                            <span className="truncate pr-3 font-medium">{l.title}</span>
+                            <span className="text-muted">{l.clicks} clics</span>
+                          </div>
+                          <div className="h-2 rounded-full bg-line/50">
+                            <div
+                              className="h-2 rounded-full bg-fractal-ocre transition-all duration-500"
+                              style={{ width: `${(l.clicks / maxClicks) * 100}%` }}
+                            />
+                          </div>
+                        </li>
+                      ))}
                   </ul>
                 </div>
               )}
             </section>
 
-            <aside className="hidden lg:block">
-              <div className="sticky top-6 rounded-2xl border border-line bg-surface shadow-soft">
+            {/* ===== Aperçu (visible mobile + desktop) ===== */}
+            <aside>
+              <div className="rounded-3xl border border-line bg-surface shadow-soft lg:sticky lg:top-6">
                 <div className="flex items-center justify-between px-5 py-3.5 border-b border-line">
-                  <span className="text-sm font-semibold">Aperçu</span>
+                  <span className="text-sm font-semibold">Aperçu de ta page</span>
                   <MoreHorizontal size={16} className="text-muted" />
                 </div>
-                <div className="py-6 bg-soft/50 rounded-b-2xl">
+                <div className="py-6 bg-soft/60 rounded-b-3xl">
                   <PhonePreview profile={profile} links={links} />
                 </div>
               </div>
@@ -323,6 +365,7 @@ export default function Dashboard() {
   );
 }
 
+/* ========== Formulaire Apparence (avec SELECT pays groupé) ========== */
 function AppearanceForm({
   profile,
   onSave,
@@ -339,11 +382,13 @@ function AppearanceForm({
     country: profile.country ?? "",
   });
 
-  const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-    setF((p) => ({ ...p, [k]: e.target.value }));
+  const set =
+    (k: keyof typeof f) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+      setF((p) => ({ ...p, [k]: e.target.value }));
 
   const cls =
-    "rounded-lg border border-line bg-surface px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-fractal-ocre/40";
+    "w-full rounded-xl border border-line bg-bg px-4 py-3 text-sm text-ink focus:outline-none focus:border-fractal-ocre transition-colors";
 
   const applyAvatar = (url: string) => {
     setF((p) => ({ ...p, avatar_url: url }));
@@ -365,61 +410,92 @@ function AppearanceForm({
           bio: f.bio.trim() || null,
           avatar_url: f.avatar_url.trim() || null,
           banner_url: f.banner_url.trim() || null,
-          country: f.country.trim() || null,
+          country: f.country || null,
         });
       }}
-      className="grid gap-5 max-w-xl"
+      className="space-y-6 max-w-xl"
     >
-      <div className="flex items-center gap-4">
-        {f.avatar_url ? (
-          <img src={f.avatar_url} alt="Aperçu avatar" className="h-16 w-16 rounded-full object-cover ring-2 ring-surface shadow-soft" />
-        ) : (
-          <div className="h-16 w-16 rounded-full bg-yekola-gradient text-white flex items-center justify-center font-bold">
-            {(f.display_name || f.username).slice(0, 2).toUpperCase()}
+      {/* Upload avatar */}
+      <div className="bg-soft rounded-2xl p-5 border border-line">
+        <h3 className="text-sm font-semibold mb-3">Photo de profil</h3>
+        <div className="flex items-center gap-4">
+          {f.avatar_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={f.avatar_url}
+              alt="Aperçu avatar"
+              className="h-20 w-20 rounded-full object-cover ring-4 ring-surface shadow-soft"
+            />
+          ) : (
+            <div className="h-20 w-20 rounded-full bg-fractal-ocre text-white flex items-center justify-center font-bold text-xl">
+              {(f.display_name || f.username).slice(0, 2).toUpperCase()}
+            </div>
+          )}
+          <div className="flex-1">
+            <p className="text-xs text-muted mb-2">Format carré, 3 Mo maximum</p>
+            <UploadButton kind="avatar" onDone={applyAvatar} />
           </div>
-        )}
-        <div className="grid gap-1">
-          <span className="text-xs text-muted">Photo de profil (3 Mo max)</span>
-          <UploadButton kind="avatar" onDone={applyAvatar} />
         </div>
       </div>
 
-      <div className="grid gap-2">
-        <div className="h-20 rounded-xl overflow-hidden border border-line">
+      {/* Upload bannière */}
+      <div className="bg-soft rounded-2xl p-5 border border-line">
+        <h3 className="text-sm font-semibold mb-3">Bannière</h3>
+        <div className="h-24 rounded-xl overflow-hidden border border-line mb-3">
           {f.banner_url ? (
             <div className="h-full bg-cover bg-center" style={{ backgroundImage: `url(${f.banner_url})` }} />
           ) : (
-            <div className="h-full bg-yekola-gradient" />
+            <div className="h-full bg-fractal-ocre/30" />
           )}
         </div>
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-muted">Bannière (3 Mo max)</span>
-          <UploadButton kind="banner" onDone={applyBanner} />
-        </div>
+        <p className="text-xs text-muted mb-2">Format rectangulaire, 3 Mo maximum</p>
+        <UploadButton kind="banner" onDone={applyBanner} />
       </div>
 
-      <label className="grid gap-1 text-xs text-muted">
-        Nom d&apos;utilisateur (URL)
-        <input value={f.username} onChange={set("username")} className={cls} />
-      </label>
-      <label className="grid gap-1 text-xs text-muted">
-        Nom affiché
-        <input value={f.display_name} onChange={set("display_name")} className={cls} />
-      </label>
-      <label className="grid gap-1 text-xs text-muted">
-        Bio
-        <textarea rows={3} value={f.bio} onChange={set("bio")} className={cls} />
-      </label>
-      <label className="grid gap-1 text-xs text-muted">
-        Pays
-        <input value={f.country} onChange={set("country")} className={cls} />
-      </label>
+      {/* Informations */}
+      <div className="bg-soft rounded-2xl p-5 border border-line space-y-4">
+        <h3 className="text-sm font-semibold">Informations</h3>
+        <label className="block">
+          <span className="text-xs text-muted mb-1.5 block">Nom d&apos;utilisateur (URL)</span>
+          <input value={f.username} onChange={set("username")} className={cls} />
+        </label>
+        <label className="block">
+          <span className="text-xs text-muted mb-1.5 block">Nom affiché</span>
+          <input value={f.display_name} onChange={set("display_name")} className={cls} />
+        </label>
+        <label className="block">
+          <span className="text-xs text-muted mb-1.5 block">Bio</span>
+          <textarea rows={3} value={f.bio} onChange={set("bio")} className={cls} />
+        </label>
+
+        {/* ===== SELECT PAYS GROUPÉ (Afrique + îles + Antilles + diaspora) ===== */}
+        <label className="block">
+          <span className="text-xs text-muted mb-1.5 block">Pays</span>
+          <select
+            value={f.country}
+            onChange={(e) => setF((p) => ({ ...p, country: e.target.value }))}
+            className={cls}
+          >
+            <option value="">— Choisir mon pays —</option>
+            {COUNTRY_GROUPS.map((g) => (
+              <optgroup key={g.label} label={g.label}>
+                {g.countries.map((c) => (
+                  <option key={c.name} value={c.name}>
+                    {c.name}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+            <option value="Autre">Autre (non listé)</option>
+          </select>
+        </label>
+      </div>
 
       <button
         type="submit"
-        className="justify-self-start rounded-lg bg-yekola-gradient hover:opacity-90 text-white text-sm font-semibold px-5 py-2.5 shadow-soft transition-all"
+        className={`w-full rounded-xl px-6 py-3.5 text-sm border border-fractal-terra/20 ${btnPrimary}`}
       >
-        Enregistrer
+        Enregistrer les modifications
       </button>
     </form>
   );
