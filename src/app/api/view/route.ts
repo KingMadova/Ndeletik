@@ -1,26 +1,13 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabaseClient";
+import { createPublicClient } from "@/lib/supabase/public";
 
-export async function POST(request: Request) {
-  try {
-    const { username } = await request.json();
+export const dynamic = "force-dynamic";
 
-    if (!username || typeof username !== "string") {
-      return NextResponse.json({ error: "Username invalide" }, { status: 400 });
-    }
-
-    const { error } = await supabase.rpc("increment_profile_view", {
-      p_username: username,
-    });
-
-    if (error) {
-      console.error("Erreur incrémentation vue:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
-    return NextResponse.json({ success: true });
-  } catch (err: any) {
-    console.error("Erreur API view:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
-  }
+export async function POST(req: Request) {
+  const body = await req.json().catch(() => null);
+  const slug = typeof body?.slug === "string" ? body.slug.toLowerCase().slice(0, 40) : "";
+  if (!slug) return NextResponse.json({ error: "invalid" }, { status: 400 });
+  const { error } = await createPublicClient().rpc("increment_views", { p_slug: slug });
+  if (error) return NextResponse.json({ error: "failed" }, { status: 500 });
+  return NextResponse.json({ ok: true });
 }

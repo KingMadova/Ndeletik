@@ -29,28 +29,22 @@ export default function AuthPage() {
         if (error) throw error;
       } else {
         const clean = username.toLowerCase().replace(/\s+/g, "");
-        if (isReserved(clean)) {
-          throw new Error("Ce nom d'utilisateur est réservé.");
-        }
+        if (isReserved(clean)) throw new Error("Ce nom d'utilisateur est réservé.");
 
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-          email,
-          password,
-        });
+        const { data: authData, error: authError } = await supabase.auth.signUp({ email, password });
         if (authError) throw authError;
 
         if (authData.user) {
           const { error: profileError } = await supabase.from("profiles").insert({
-            id: authData.user.id,
-            username: clean,
+            user_id: authData.user.id,
+            slug: clean,
+            display_name: clean,
             bio: "Nouveau sur Ndeletik 🌍",
             avatar_url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${clean}`,
           });
           if (profileError) {
-            // Fix A : message humain si le pseudo existe déjà
-            if (profileError.code === "23505") {
-              throw new Error("Ce pseudo est déjà pris, choisis-en un autre.");
-            }
+            if (profileError.code === "23505") throw new Error("Ce pseudo est déjà pris, choisis-en un autre.");
+            if (profileError.message.includes("slug_reserved")) throw new Error("Ce pseudo est réservé.");
             throw profileError;
           }
         }
@@ -105,9 +99,7 @@ export default function AuthPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           {!isLogin && (
             <div>
-              <label className="block text-sm font-medium text-ink mb-1">
-                Nom d&apos;utilisateur (unique)
-              </label>
+              <label className="block text-sm font-medium text-ink mb-1">Nom d&apos;utilisateur (unique)</label>
               <input
                 type="text"
                 required

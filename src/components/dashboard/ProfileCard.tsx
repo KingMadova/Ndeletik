@@ -1,21 +1,9 @@
 "use client";
 
 import { Copy, Share2, Globe } from "lucide-react";
+import type { Profile } from "@/lib/types";
 
-export type Profile = {
-  id: string;
-  username: string;
-  display_name: string | null;
-  bio: string | null;
-  avatar_url: string | null;
-  banner_url: string | null;
-  country: string | null;
-  role?: string | null;
-  plan?: string | null;
-  views?: number | null;
-  theme?: string | null;
-  created_at?: string;
-};
+export type { Profile };
 
 export function Banner({ url, className = "" }: { url: string | null; className?: string }) {
   if (url) {
@@ -32,7 +20,7 @@ export function Banner({ url, className = "" }: { url: string | null; className?
 }
 
 export function Avatar({ profile, size = 88 }: { profile: Profile; size?: number }) {
-  const name = profile.display_name || profile.username;
+  const name = profile.display_name || profile.slug;
   const initials = name.slice(0, 2).toUpperCase();
 
   if (profile.avatar_url) {
@@ -82,9 +70,7 @@ export function ProfileCard({ profile, publicUrl, onCopy, onShare }: ProfileCard
                 <Globe size={11} /> {profile.country}
               </span>
             )}
-            <h2 className="text-lg font-display font-extrabold truncate">
-              {profile.display_name || profile.username}
-            </h2>
+            <h2 className="text-lg font-display font-extrabold truncate">{profile.display_name}</h2>
             {profile.bio && <p className="text-xs text-muted truncate">{profile.bio}</p>}
           </div>
         </div>

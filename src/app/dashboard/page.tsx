@@ -3,12 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Reorder } from "framer-motion";
-import { LogOut, Plus, MoreHorizontal, Link2, Eye, User, Palette, BarChart3 } from "lucide-react";
+import { LogOut, Plus, Link2, Eye, User, Palette, BarChart3, SwatchBook } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
-import type { LinkItem as LinkItemType } from "@/lib/types";
+import type { LinkItem as LinkItemType, Profile } from "@/lib/types";
 import { LinkItem } from "@/components/dashboard/LinkItem";
-import { ProfileCard, Banner, type Profile } from "@/components/dashboard/ProfileCard";
-import { PhonePreview } from "@/components/dashboard/PhonePreview";
+import { ProfileCard, Banner } from "@/components/dashboard/ProfileCard";
 import { AddBlockModal } from "@/components/dashboard/AddBlockModal";
 import { useToast } from "@/components/dashboard/Toast";
 import { normalizeUrl } from "@/components/dashboard/blockMeta";
@@ -42,24 +41,25 @@ export default function Dashboard() {
   latest.current = links;
 
   const publicUrl =
-    typeof window !== "undefined" && profile
-      ? `${window.location.origin}/${profile.username}`
-      : "";
+    typeof window !== "undefined" && profile ? `${window.location.origin}/@${profile.slug}` : "";
 
   useEffect(() => {
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return router.replace("/auth");
-      const uid = session.user.id;
-      const [{ data: p }, { data: l }] = await Promise.all([
-        supabase.from("profiles").select("*").eq("id", uid).single(),
-        supabase
-          .from("links")
-          .select("*")
-          .eq("user_id", uid)
-          .order("display_order", { ascending: true }),
-      ]);
-      if (p) setProfile(p as Profile);
+      const { data: p } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("user_id", session.user.id)
+        .single();
+      if (!p) return router.replace("/auth");
+      const prof = p as Profile;
+      const { data: l } = await supabase
+        .from("links")
+        .select("*")
+        .eq("profile_id", prof.id)
+        .order("position", { ascending: true });
+      setProfile(prof);
       setLinks((l ?? []) as LinkItemType[]);
       committed.current = (l ?? []) as LinkItemType[];
       setLoading(false);
@@ -75,20 +75,23 @@ export default function Dashboard() {
   );
 
   const addLink = async (title: string, url: string) => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return false;
+    if (!profile) return false;
     const { data, error } = await supabase
       .from("links")
       .insert({
-        user_id: session.user.id,
+        profile_id: profile.id,
         title,
         url: normalizeUrl(url),
-        display_order: latest.current.length,
+        position: latest.current.length,
       })
       .select()
       .single();
-    if (error || !data) {
-      toast("Impossible d'ajouter le bloc", false);
+    if (error) {
+      if (error.message.includes("link_limit_reached")) {
+        toast("Limite de 5 liens actifs atteinte (plan Gratuit) — passe au Pro pour plus", false);
+      } else {
+        toast("Impossible d'ajouter le bloc", false);
+      }
       return false;
     }
     const next = [...latest.current, data as LinkItemType];
@@ -119,14 +122,13 @@ export default function Dashboard() {
   };
 
   const persistOrder = async () => {
+    if (!profile) return;
     const ids = latest.current.map((l) => l.id);
     if (ids.join() === committed.current.map((l) => l.id).join()) return;
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error();
       const { error } = await supabase.rpc("update_links_order", {
-        p_user_id: session.user.id,
-        p_link_ids: ids,
+        p_profile: profile.id,
+        p_ids: ids,
       });
       if (error) throw new Error(error.message);
       committed.current = [...latest.current];
@@ -137,7 +139,7 @@ export default function Dashboard() {
 
   const saveProfile = async (patch: Partial<Profile>) => {
     if (!profile) return;
-    if (patch.username && patch.username !== profile.username && isReserved(patch.username)) {
+    if (patch.slug && patch.slug !== profile.slug && isReserved(patch.slug)) {
       toast("Ce nom d'utilisateur est réservé", false);
       return;
     }
@@ -146,7 +148,9 @@ export default function Dashboard() {
     const { error } = await supabase.from("profiles").update(patch).eq("id", profile.id);
     if (error) {
       setProfile(prev);
-      toast(`Profil non enregistré : ${error.message}`, false);
+      if (error.code === "23505") toast("Ce pseudo est déjà pris", false);
+      else if (error.message.includes("slug_reserved")) toast("Ce pseudo est réservé", false);
+      else toast(`Profil non enregistré : ${error.message}`, false);
     } else toast("Profil enregistré");
   };
 
@@ -162,10 +166,7 @@ export default function Dashboard() {
   const shareUrl = async () => {
     if (navigator.share) {
       try {
-        await navigator.share({
-          title: profile?.display_name || profile?.username,
-          url: publicUrl,
-        });
+        await navigator.share({ title: profile?.display_name, url: publicUrl });
       } catch {}
     } else copyUrl();
   };
@@ -181,7 +182,6 @@ export default function Dashboard() {
         <div className="max-w-6xl mx-auto space-y-4">
           <div className="h-8 w-40 rounded bg-line/70" />
           <div className="h-36 rounded-2xl bg-line/70" />
-          <div className="h-24 rounded-2xl bg-line/70" />
           <div className="h-64 rounded-2xl bg-line/70" />
         </div>
       </div>
@@ -190,24 +190,29 @@ export default function Dashboard() {
 
   const totalClicks = links.reduce((s, l) => s + l.clicks, 0);
   const maxClicks = Math.max(1, ...links.map((l) => l.clicks));
-  const activeLinks = links.filter((l) => l.is_active).length;
+  const activeLinks = links.filter((l) => l.enabled).length;
 
   return (
     <div className="min-h-screen bg-bg text-ink">
       <OfflineBanner />
       <div className="max-w-6xl mx-auto sm:p-6">
         <div className="bg-surface sm:rounded-3xl border border-line shadow-soft overflow-hidden pb-6">
-          {/* Header */}
           <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-line">
             <h1 className="text-xl font-display font-extrabold">Mon lien bio</h1>
             <div className="flex items-center gap-2">
               <a
-                href={`/${profile.username}`}
+                href={`/@@${profile.slug}`.replace("@@", "@")}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 rounded-full border border-line text-sm text-muted hover:border-fractal-ocre hover:text-fractal-terra transition-colors"
               >
                 <Eye size={14} /> Voir ma page
+              </a>
+              <a
+                href="/dashboard/themes"
+                className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 rounded-full border border-line text-sm text-muted hover:border-fractal-ocre hover:text-fractal-terra transition-colors"
+              >
+                <SwatchBook size={14} /> Thèmes
               </a>
               <button
                 onClick={() => setTab("appearance")}
@@ -227,11 +232,10 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <Banner url={profile.banner_url} className="h-32 sm:h-40" />
+          <Banner url={profile.cover_url} className="h-32 sm:h-40" />
 
           <ProfileCard profile={profile} publicUrl={publicUrl} onCopy={copyUrl} onShare={shareUrl} />
 
-          {/* Stats rapides */}
           <div className="grid grid-cols-3 gap-3 px-4 sm:px-6 mt-6">
             <div className="bg-soft rounded-xl p-4 border border-line">
               <div className="text-xs text-muted mb-1">Liens actifs</div>
@@ -283,9 +287,7 @@ export default function Dashboard() {
                     <div className="text-center py-14 rounded-2xl border-2 border-dashed border-line">
                       <Link2 size={48} className="mx-auto text-line mb-3" />
                       <p className="text-sm font-semibold mb-1">Aucun lien pour le moment</p>
-                      <p className="text-xs text-muted">
-                        Clique sur le bouton orange ci-dessus pour ajouter ton premier lien.
-                      </p>
+                      <p className="text-xs text-muted">Clique sur le bouton orange ci-dessus.</p>
                     </div>
                   ) : (
                     <Reorder.Group axis="y" values={links} onReorder={setLinks} className="space-y-2.5 p-0">
@@ -301,9 +303,8 @@ export default function Dashboard() {
                     </Reorder.Group>
                   )}
 
-                  {/* ===== Raccourcis Ndeletik ===== */}
                   <div className="mt-6">
-                    <ShortLinkManager userId={profile.id} plan={profile.plan ?? "free"} />
+                    <ShortLinkManager userId={profile.user_id} plan="free" />
                   </div>
                 </>
               )}
@@ -340,14 +341,25 @@ export default function Dashboard() {
             </section>
 
             <aside>
-              <div className="rounded-3xl border border-line bg-surface shadow-soft lg:sticky lg:top-6">
-                <div className="flex items-center justify-between px-5 py-3.5 border-b border-line">
-                  <span className="text-sm font-semibold">Aperçu de ta page</span>
-                  <MoreHorizontal size={16} className="text-muted" />
-                </div>
-                <div className="py-6 bg-soft/60 rounded-b-3xl">
-                  <PhonePreview profile={profile} links={links} />
-                </div>
+              <div className="rounded-3xl border border-line bg-surface shadow-soft lg:sticky lg:top-6 p-5 text-center">
+                <p className="text-sm font-semibold mb-2">Aperçu & thèmes</p>
+                <p className="text-xs text-muted mb-4">
+                  Visualise ta page publique et choisis parmi 18 thèmes (4 gratuits, 7 Pro, 7 Business).
+                </p>
+                <a
+                  href="/dashboard/themes"
+                  className={`inline-flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm ${btnPrimary}`}
+                >
+                  <SwatchBook size={16} /> Ouvrir l&apos;éditeur de thèmes
+                </a>
+                <a
+                  href={`/@@${profile.slug}`.replace("@@", "@")}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-line px-5 py-3 text-sm text-muted hover:border-fractal-ocre hover:text-fractal-terra transition-colors"
+                >
+                  <Eye size={16} /> Voir ma page publique
+                </a>
               </div>
             </aside>
           </div>
@@ -368,11 +380,12 @@ function AppearanceForm({
   onSave: (p: Partial<Profile>) => void;
 }) {
   const [f, setF] = useState({
-    username: profile.username,
-    display_name: profile.display_name ?? "",
+    slug: profile.slug,
+    display_name: profile.display_name,
+    headline: profile.headline ?? "",
     bio: profile.bio ?? "",
     avatar_url: profile.avatar_url ?? "",
-    banner_url: profile.banner_url ?? "",
+    cover_url: profile.cover_url ?? "",
     country: profile.country ?? "",
   });
 
@@ -384,28 +397,17 @@ function AppearanceForm({
   const cls =
     "w-full rounded-xl border border-line bg-bg px-4 py-3 text-sm text-ink focus:outline-none focus:border-fractal-ocre transition-colors";
 
-  const applyAvatar = (url: string) => {
-    setF((p) => ({ ...p, avatar_url: url }));
-    onSave({ avatar_url: url });
-  };
-
-  const applyBanner = (url: string) => {
-    setF((p) => ({ ...p, banner_url: url }));
-    onSave({ banner_url: url });
-  };
-
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
         onSave({
-          // Fix C : username jamais vide → on garde l'ancien si champ vidé
-          username:
-            f.username.trim().toLowerCase().replace(/[^a-z0-9_.-]/g, "") || profile.username,
-          display_name: f.display_name.trim() || null,
+          slug: f.slug.trim().toLowerCase().replace(/[^a-z0-9_.-]/g, "") || profile.slug,
+          display_name: f.display_name.trim() || profile.display_name,
+          headline: f.headline.trim() || null,
           bio: f.bio.trim() || null,
           avatar_url: f.avatar_url.trim() || null,
-          banner_url: f.banner_url.trim() || null,
+          cover_url: f.cover_url.trim() || null,
           country: f.country || null,
         });
       }}
@@ -423,38 +425,54 @@ function AppearanceForm({
             />
           ) : (
             <div className="h-20 w-20 rounded-full bg-fractal-ocre text-white flex items-center justify-center font-bold text-xl">
-              {(f.display_name || f.username).slice(0, 2).toUpperCase()}
+              {f.display_name.slice(0, 2).toUpperCase()}
             </div>
           )}
           <div className="flex-1">
             <p className="text-xs text-muted mb-2">Format carré, 3 Mo maximum</p>
-            <UploadButton kind="avatar" onDone={applyAvatar} />
+            <UploadButton
+              kind="avatar"
+              onDone={(url) => {
+                setF((p) => ({ ...p, avatar_url: url }));
+                onSave({ avatar_url: url });
+              }}
+            />
           </div>
         </div>
       </div>
 
       <div className="bg-soft rounded-2xl p-5 border border-line">
-        <h3 className="text-sm font-semibold mb-3">Bannière</h3>
+        <h3 className="text-sm font-semibold mb-3">Bannière (couverture)</h3>
         <div className="h-24 rounded-xl overflow-hidden border border-line mb-3">
-          {f.banner_url ? (
-            <div className="h-full bg-cover bg-center" style={{ backgroundImage: `url(${f.banner_url})` }} />
+          {f.cover_url ? (
+            <div className="h-full bg-cover bg-center" style={{ backgroundImage: `url(${f.cover_url})` }} />
           ) : (
             <div className="h-full bg-fractal-ocre/30" />
           )}
         </div>
         <p className="text-xs text-muted mb-2">Format rectangulaire, 3 Mo maximum</p>
-        <UploadButton kind="banner" onDone={applyBanner} />
+        <UploadButton
+          kind="banner"
+          onDone={(url) => {
+            setF((p) => ({ ...p, cover_url: url }));
+            onSave({ cover_url: url });
+          }}
+        />
       </div>
 
       <div className="bg-soft rounded-2xl p-5 border border-line space-y-4">
         <h3 className="text-sm font-semibold">Informations</h3>
         <label className="block">
-          <span className="text-xs text-muted mb-1.5 block">Nom d&apos;utilisateur (URL)</span>
-          <input value={f.username} onChange={set("username")} className={cls} />
+          <span className="text-xs text-muted mb-1.5 block">Pseudo (URL publique /@pseudo)</span>
+          <input value={f.slug} onChange={set("slug")} className={cls} />
         </label>
         <label className="block">
           <span className="text-xs text-muted mb-1.5 block">Nom affiché</span>
           <input value={f.display_name} onChange={set("display_name")} className={cls} />
+        </label>
+        <label className="block">
+          <span className="text-xs text-muted mb-1.5 block">Titre (sous le nom)</span>
+          <input value={f.headline} onChange={set("headline")} className={cls} placeholder="Ex : Coach business · Pointe-Noire" />
         </label>
         <label className="block">
           <span className="text-xs text-muted mb-1.5 block">Bio</span>

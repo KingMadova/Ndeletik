@@ -7,7 +7,6 @@ import type { LinkItem as LinkItemType } from "@/lib/types";
 import { getBlockMeta, normalizeUrl } from "./blockMeta";
 import { useToast } from "./Toast";
 
-/* Validation d'URL : http(s), mailto, tel uniquement */
 export const validUrl = (v: string) => {
   try {
     const u = new URL(normalizeUrl(v));
@@ -66,20 +65,20 @@ export function LinkItem({ link, onUpdate, onDelete, onDragEnd }: Props) {
 
         <span
           className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${bg} text-white shadow-soft ${
-            link.is_active ? "" : "opacity-40"
+            link.enabled ? "" : "opacity-40"
           }`}
         >
           <Icon size={18} />
         </span>
 
-        <div className={`flex-1 min-w-0 ${link.is_active ? "" : "opacity-50"}`}>
+        <div className={`flex-1 min-w-0 ${link.enabled ? "" : "opacity-50"}`}>
           <p className="text-sm font-semibold text-ink truncate">{link.title}</p>
           <p className="text-xs text-muted truncate">
             {link.clicks} clics · {link.url.replace(/^https?:\/\//, "")}
           </p>
         </div>
 
-        {!link.is_active && (
+        {!link.enabled && (
           <span className="text-xs text-muted bg-soft px-2 py-1 rounded-full">Brouillon</span>
         )}
 
@@ -151,8 +150,8 @@ export function LinkItem({ link, onUpdate, onDelete, onDragEnd }: Props) {
                 <label className="flex items-center gap-2 text-sm text-ink cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={link.is_active}
-                    onChange={(e) => onUpdate(link.id, { is_active: e.target.checked })}
+                    checked={link.enabled}
+                    onChange={(e) => onUpdate(link.id, { enabled: e.target.checked })}
                     className="h-4 w-4 accent-fractal-ocre rounded"
                   />
                   Publié

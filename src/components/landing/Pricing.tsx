@@ -1,18 +1,34 @@
 "use client";
+
 import { useState } from "react";
 import { Check } from "lucide-react";
 import Link from "next/link";
 import { Logo } from "./ui";
 
 const plans = {
-  Gratuit: { m: 0, feats: ["5 liens actifs", "1 thème de profil", "Statistiques de base", "Page Ndeletik.com/@toi"] },
+  Gratuit: {
+    m: 0,
+    feats: ["5 liens actifs", "4 thèmes de profil", "Statistiques de base", "Page Ndeletik.com/@toi"],
+  },
   Pro: {
     m: 3000,
-    feats: ["Liens illimités", "Tous les thèmes + couleurs", "Paiement Mobile Money", "Statistiques détaillées", "Sans badge Ndeletik"],
+    feats: [
+      "Liens illimités",
+      "7 thèmes Pro + couleurs personnalisables",
+      "Paiement Mobile Money",
+      "Statistiques détaillées",
+      "Sans badge Ndeletik",
+    ],
   },
   Business: {
     m: 9000,
-    feats: ["Tout le plan Pro", "Domaine personnalisé", "Multi-profils (3)", "Export des données", "Support prioritaire"],
+    feats: [
+      "Tout le plan Pro",
+      "7 thèmes Business (bannières, couvertures)",
+      "Domaine personnalisé",
+      "Export des données",
+      "Support prioritaire",
+    ],
   },
 } as const;
 
@@ -42,7 +58,6 @@ export function Pricing() {
         </div>
 
         <div className="rounded-3xl bg-surface p-5 text-ink shadow-xl sm:p-6">
-          {/* Toggle mensuel / annuel */}
           <div className="flex rounded-full bg-soft p-1 text-xs font-medium" role="tablist">
             {(["Mensuel", "Annuel"] as const).map((l) => {
               const active = (l === "Annuel") === yearly;
@@ -61,7 +76,6 @@ export function Pricing() {
             })}
           </div>
 
-          {/* Sélecteur de plan */}
           <div className="mt-5 flex gap-2">
             {(Object.keys(plans) as Plan[]).map((k) => (
               <button

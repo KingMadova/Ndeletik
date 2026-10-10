@@ -1,0 +1,7 @@
+/* Miniatures et cadre téléphone du sélecteur de thèmes */
+.nd-thumb { width: 132px; height: 232px; overflow: hidden; border-radius: 14px; position: relative; background: #ddd; }
+.nd-thumb-inner { width: 375px; height: 659px; transform: scale(0.352); transform-origin: top left; pointer-events: none; }
+.nd-thumb-inner .nd-profile { min-height: 0; height: 659px; overflow: hidden; }
+.nd-phone { width: 340px; max-width: 100%; height: 680px; border: 10px solid #111; border-radius: 40px; overflow: hidden; background: #000; box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.45); }
+.nd-screen { height: 100%; overflow-y: auto; overscroll-behavior: contain; }
+.nd-screen .nd-profile { min-height: 100%; }

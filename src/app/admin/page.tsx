@@ -2,7 +2,6 @@
 
 import { Component, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { OfflineBanner } from "@/components/dashboard/OfflineBanner";
 import dynamic from "next/dynamic";
 import {
   Users, Link2, MousePointerClick, Eye, ArrowLeft, ExternalLink, Crown, Trash2, Shield,
@@ -12,7 +11,6 @@ import { supabase } from "@/lib/supabaseClient";
 import { useToast } from "@/components/dashboard/Toast";
 import { getCoords } from "@/lib/countryCoords";
 
-/* Carte chargée en dynamique : si d3-geo manque, le reste de la page vit */
 const WorldMap = dynamic(
   () => import("@/components/admin/WorldMap").then((m) => m.WorldMap),
   { ssr: false, loading: () => <div className="h-64 rounded-xl bg-soft animate-pulse" /> }
@@ -31,18 +29,20 @@ const SORTS: { id: SortKey; label: string }[] = [
   { id: "clicks", label: "Plus de clics" },
   { id: "views", label: "Plus de vues" },
   { id: "links", label: "Plus de liens" },
-  { id: "az", label: "Username A → Z" },
+  { id: "az", label: "Pseudo A → Z" },
 ];
 
 type Row = {
   id: string;
-  username: string;
-  display_name: string | null;
+  user_id: string;
+  slug: string;
+  display_name: string;
   country: string | null;
-  views: number | null;
-  role: string;
-  plan: string;
+  views: number;
+  theme_id: string;
   created_at: string;
+  plan: string;
+  role: string;
   links_count: number;
   clicks_total: number;
 };
@@ -111,7 +111,7 @@ function PlanDonut({ counts }: { counts: Record<string, number> }) {
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <span className="font-display text-xl font-extrabold">{total}</span>
-          <span className="text-[10px] text-muted">abonnés</span>
+          <span className="text-[10px] text-muted">comptes</span>
         </div>
       </div>
       <ul className="flex-1 space-y-2 text-sm">
@@ -139,7 +139,6 @@ export default function AdminPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
 
-  /* ===== Filtres & tri ===== */
   const [q, setQ] = useState("");
   const [country, setCountry] = useState("all");
   const [plan, setPlan] = useState("all");
@@ -151,37 +150,43 @@ export default function AdminPage() {
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return router.replace("/auth");
-      const { data: p, error } = await supabase
-        .from("profiles")
-        .select("role, username")
-        .eq("id", session.user.id)
-        .single();
-      if (!alive) return;
-      if (error || !p) {
-        toast(`Profil introuvable : ${error?.message ?? "aucune ligne"}`, false);
-        return router.replace("/dashboard");
-      }
-      if (p.role !== "admin") {
-        toast(`Connecté en tant que @${p.username} (rôle : ${p.role}) — accès admin refusé`, false);
-        return router.replace("/dashboard");
-      }
-      const [{ data: profiles }, { data: links }] = await Promise.all([
-        supabase.from("profiles").select("id, username, display_name, country, views, role, plan, created_at"),
-        supabase.from("links").select("user_id, clicks"),
+
+      const [{ data: profs }, { data: accs }, { data: lnks }] = await Promise.all([
+        supabase.from("profiles").select("id, user_id, slug, display_name, country, views, theme_id, created_at"),
+        supabase.from("accounts").select("user_id, plan, role"),
+        supabase.from("links").select("profile_id, clicks"),
       ]);
       if (!alive) return;
-      const agg = new Map<string, { count: number; clicks: number }>();
-      (links ?? []).forEach((l: any) => {
-        const a = agg.get(l.user_id) ?? { count: 0, clicks: 0 };
+
+      const me = (accs ?? []).find((a: any) => a.user_id === session.user.id);
+      if (!me || me.role !== "admin") {
+        toast(`Accès admin refusé (rôle : ${me?.role ?? "inconnu"})`, false);
+        return router.replace("/dashboard");
+      }
+
+      const accByUser = new Map<string, any>((accs ?? []).map((a: any) => [a.user_id, a]));
+      const linkAgg = new Map<string, { count: number; clicks: number }>();
+      (lnks ?? []).forEach((l: any) => {
+        const a = linkAgg.get(l.profile_id) ?? { count: 0, clicks: 0 };
         a.count += 1;
         a.clicks += l.clicks ?? 0;
-        agg.set(l.user_id, a);
+        linkAgg.set(l.profile_id, a);
       });
+
       setRows(
-        ((profiles ?? []) as any[]).map((x) => ({
-          ...x,
-          links_count: agg.get(x.id)?.count ?? 0,
-          clicks_total: agg.get(x.id)?.clicks ?? 0,
+        ((profs ?? []) as any[]).map((p) => ({
+          id: p.id,
+          user_id: p.user_id,
+          slug: p.slug,
+          display_name: p.display_name,
+          country: p.country,
+          views: p.views ?? 0,
+          theme_id: p.theme_id,
+          created_at: p.created_at,
+          plan: accByUser.get(p.user_id)?.plan ?? "free",
+          role: accByUser.get(p.user_id)?.role ?? "user",
+          links_count: linkAgg.get(p.id)?.count ?? 0,
+          clicks_total: linkAgg.get(p.id)?.clicks ?? 0,
         }))
       );
       setLoading(false);
@@ -191,7 +196,6 @@ export default function AdminPage() {
     };
   }, [router, toast]);
 
-  /* ===== Dérivés : options pays, filtrage, tri ===== */
   const countryOptions = useMemo(() => {
     const m = new Map<string, number>();
     rows.forEach((r) => {
@@ -204,7 +208,7 @@ export default function AdminPage() {
   const filtered = useMemo(() => {
     const nq = q.trim().toLowerCase();
     const list = rows.filter((r) => {
-      if (nq && !(r.username.toLowerCase().includes(nq) || (r.display_name ?? "").toLowerCase().includes(nq))) return false;
+      if (nq && !(r.slug.toLowerCase().includes(nq) || r.display_name.toLowerCase().includes(nq))) return false;
       if (country !== "all" && (r.country?.trim() ?? "—") !== country) return false;
       if (plan !== "all" && r.plan !== plan) return false;
       if (role !== "all" && r.role !== role) return false;
@@ -216,11 +220,11 @@ export default function AdminPage() {
       case "clicks":
         return [...list].sort((a, b) => b.clicks_total - a.clicks_total);
       case "views":
-        return [...list].sort((a, b) => (b.views ?? 0) - (a.views ?? 0));
+        return [...list].sort((a, b) => b.views - a.views);
       case "links":
         return [...list].sort((a, b) => b.links_count - a.links_count);
       case "az":
-        return [...list].sort((a, b) => a.username.localeCompare(b.username, "fr"));
+        return [...list].sort((a, b) => a.slug.localeCompare(b.slug, "fr"));
       default:
         return [...list].sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
     }
@@ -234,19 +238,19 @@ export default function AdminPage() {
     setRole("all");
   };
 
-  /* ===== Export CSV (BOM UTF-8 pour Excel) ===== */
   const exportCsv = () => {
-    const header = ["username", "nom_affiche", "pays", "plan", "role", "liens", "clics", "vues", "inscrit_le"];
+    const header = ["pseudo", "nom_affiche", "pays", "plan", "role", "theme", "liens", "clics", "vues", "inscrit_le"];
     const lines = filtered.map((r) =>
       [
-        r.username,
-        r.display_name ?? "",
+        r.slug,
+        r.display_name,
         r.country ?? "",
         r.plan,
         r.role,
+        r.theme_id,
         r.links_count,
         r.clicks_total,
-        r.views ?? 0,
+        r.views,
         new Date(r.created_at).toLocaleDateString("fr-FR"),
       ]
         .map((v) => `"${String(v).replace(/"/g, '""')}"`)
@@ -263,22 +267,21 @@ export default function AdminPage() {
     toast(`Export CSV : ${filtered.length} ligne(s)`);
   };
 
-  /* ===== Actions ===== */
   const toggleRole = async (r: Row) => {
     const next = r.role === "admin" ? "user" : "admin";
-    const { error } = await supabase.from("profiles").update({ role: next }).eq("id", r.id);
+    const { error } = await supabase.from("accounts").update({ role: next }).eq("user_id", r.user_id);
     if (error) return toast("Modification échouée", false);
     setRows((prev) => prev.map((x) => (x.id === r.id ? { ...x, role: next } : x)));
-    toast(`@${r.username} → ${next}`);
+    toast(`@${r.slug} → ${next}`);
   };
 
   const deleteUser = async (r: Row) => {
-    if (!confirm(`Supprimer définitivement @${r.username} et tous ses liens ?`)) return;
-    const { error: e1 } = await supabase.from("links").delete().eq("user_id", r.id);
-    const { error: e2 } = await supabase.from("profiles").delete().eq("id", r.id);
+    if (!confirm(`Supprimer définitivement @${r.slug}, ses liens et son compte ?`)) return;
+    const { error: e1 } = await supabase.from("profiles").delete().eq("id", r.id);
+    const { error: e2 } = await supabase.from("accounts").delete().eq("user_id", r.user_id);
     if (e1 || e2) return toast("Suppression échouée", false);
     setRows((prev) => prev.filter((x) => x.id !== r.id));
-    toast(`@${r.username} supprimé`);
+    toast(`@${r.slug} supprimé`);
   };
 
   if (loading) {
@@ -297,13 +300,12 @@ export default function AdminPage() {
     );
   }
 
-  /* ===== Agrégats globaux (indépendants des filtres) ===== */
   const totals = rows.reduce(
     (acc, r) => ({
       users: acc.users + 1,
       links: acc.links + r.links_count,
       clicks: acc.clicks + r.clicks_total,
-      views: acc.views + (r.views ?? 0),
+      views: acc.views + r.views,
     }),
     { users: 0, links: 0, clicks: 0, views: 0 }
   );
@@ -362,16 +364,14 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen bg-bg text-ink">
-      <OfflineBanner />
       <div className="max-w-6xl mx-auto p-4 sm:p-6 space-y-6">
-        {/* ===== Header ===== */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-fractal-or via-fractal-ocre to-fractal-terra text-white shadow-soft">
               <Shield size={20} />
             </span>
             <div>
-              <h1 className="font-display text-xl font-extrabold">Backoffice Ndeletik</h1>
+              <h1 className="font-display text-xl font-extrabold">Backoffice YEKOLA</h1>
               <p className="text-xs text-muted">
                 {new Date().toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
               </p>
@@ -385,7 +385,6 @@ export default function AdminPage() {
           </a>
         </div>
 
-        {/* ===== KPIs globaux ===== */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {kpis.map((k) => (
             <div key={k.label} className="bg-surface border border-line rounded-2xl p-4 shadow-soft">
@@ -408,7 +407,6 @@ export default function AdminPage() {
           ))}
         </div>
 
-        {/* ===== Carte + donut + top pays (vue globale) ===== */}
         <div className="grid lg:grid-cols-[1.6fr_1fr] gap-4">
           <div className="bg-surface border border-line rounded-2xl p-5 shadow-soft">
             <div className="mb-4 flex items-center justify-between">
@@ -464,7 +462,6 @@ export default function AdminPage() {
           </div>
         </div>
 
-        {/* ===== Tableau utilisateurs + barre de filtres ===== */}
         <div className="bg-surface border border-line rounded-2xl shadow-soft overflow-hidden">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4">
             <h2 className="text-sm font-semibold">
@@ -491,14 +488,13 @@ export default function AdminPage() {
             </div>
           </div>
 
-          {/* Barre de filtres */}
           <div className="grid gap-3 border-b border-line bg-soft/40 px-5 py-4 sm:grid-cols-2 lg:grid-cols-5">
             <label className="relative lg:col-span-2">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
               <input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                placeholder="Rechercher un username ou un nom…"
+                placeholder="Rechercher un pseudo ou un nom…"
                 className={`${inputCls} w-full pl-9`}
               />
             </label>
@@ -527,7 +523,6 @@ export default function AdminPage() {
             </select>
           </div>
 
-          {/* Table */}
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
@@ -537,6 +532,7 @@ export default function AdminPage() {
                   <th className="px-3 py-3 font-medium text-center">Liens</th>
                   <th className="px-3 py-3 font-medium text-center">Clics</th>
                   <th className="px-3 py-3 font-medium">Plan</th>
+                  <th className="px-3 py-3 font-medium">Thème</th>
                   <th className="px-3 py-3 font-medium">Rôle</th>
                   <th className="px-3 py-3 font-medium">Inscrit le</th>
                   <th className="px-5 py-3 font-medium text-right">Actions</th>
@@ -545,7 +541,7 @@ export default function AdminPage() {
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-5 py-12 text-center">
+                    <td colSpan={9} className="px-5 py-12 text-center">
                       <p className="text-sm font-semibold mb-1">Aucun utilisateur ne correspond</p>
                       <p className="text-xs text-muted mb-3">Modifie ta recherche ou tes filtres.</p>
                       <button
@@ -560,8 +556,8 @@ export default function AdminPage() {
                   filtered.map((r) => (
                     <tr key={r.id} className="border-b border-line/60 last:border-0 hover:bg-soft/60 transition-colors">
                       <td className="px-5 py-3">
-                        <div className="font-medium">@{r.username}</div>
-                        {r.display_name && <div className="text-xs text-muted">{r.display_name}</div>}
+                        <div className="font-medium">@{r.slug}</div>
+                        <div className="text-xs text-muted">{r.display_name}</div>
                       </td>
                       <td className="px-3 py-3 text-muted">{r.country ?? "—"}</td>
                       <td className="px-3 py-3 text-center">{r.links_count}</td>
@@ -572,6 +568,7 @@ export default function AdminPage() {
                           {PLAN_LABELS[r.plan] ?? r.plan}
                         </span>
                       </td>
+                      <td className="px-3 py-3 text-xs text-muted">{r.theme_id}</td>
                       <td className="px-3 py-3">
                         <span
                           className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${
@@ -588,10 +585,10 @@ export default function AdminPage() {
                       <td className="px-5 py-3">
                         <div className="flex items-center justify-end gap-1">
                           <a
-                            href={`/${r.username}`}
+                            href={`/@${r.slug}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            aria-label={`Voir la page de ${r.username}`}
+                            aria-label={`Voir la page de ${r.slug}`}
                             className="p-1.5 rounded-md text-muted hover:bg-soft hover:text-fractal-terra transition-colors"
                           >
                             <ExternalLink size={15} />
@@ -620,7 +617,6 @@ export default function AdminPage() {
           </div>
         </div>
 
-        {/* ===== Revenus (placeholder pré-Sebpay) ===== */}
         <div className="rounded-2xl border border-dashed border-line bg-soft/50 p-6 text-center">
           <p className="text-sm font-semibold">Revenus Mobile Money</p>
           <p className="mt-1 text-xs text-muted">
