@@ -185,7 +185,7 @@ export function ProfileRenderer({
               {profile.socials.map((s) => (
                 <a
                   key={s.type}
-                  href={preview ? "#" : safeUrl(s.url) ?? "#"}
+                  href={preview ? "#" : (safeUrl(s.url) ?? "#")}
                   aria-label={s.type}
                   rel="noopener noreferrer"
                 >
