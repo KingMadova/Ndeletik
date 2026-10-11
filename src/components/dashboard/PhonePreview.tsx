@@ -1,12 +1,11 @@
 "use client";
 
 import { ArrowUpRight } from "lucide-react";
-import type { LinkItem } from "@/lib/types";
-import { Avatar, Banner, type Profile } from "./ProfileCard";
+import type { LinkItem, Profile } from "@/lib/themes/types";
 import { getBlockMeta } from "./blockMeta";
 
 export function PhonePreview({ profile, links }: { profile: Profile; links: LinkItem[] }) {
-  const active = links.filter((l) => l.is_active);
+  const active = links.filter((l) => l.enabled !== false);
 
   return (
     <div className="mx-auto w-[250px] rounded-[2.2rem] border-[7px] border-ink bg-surface overflow-hidden shadow-xl ring-8 ring-fractal-or/20">
@@ -16,13 +15,29 @@ export function PhonePreview({ profile, links }: { profile: Profile; links: Link
       </div>
 
       <div className="h-[430px] overflow-y-auto bg-soft [scrollbar-width:none]">
-        <Banner url={profile.banner_url} className="h-16" />
-        <div className="-mt-8 flex flex-col items-center px-3 pb-4">
+        {profile.coverUrl && (
+          <div
+            className="h-16 bg-cover bg-center"
+            style={{ backgroundImage: `url(${profile.coverUrl})` }}
+          />
+        )}
+        <div className={`${profile.coverUrl ? "-mt-8" : "mt-4"} flex flex-col items-center px-3 pb-4`}>
           <div className="rounded-full ring-4 ring-surface">
-            <Avatar profile={profile} size={64} />
+            {profile.avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={profile.avatarUrl}
+                alt={profile.displayName}
+                className="h-16 w-16 rounded-full object-cover"
+              />
+            ) : (
+              <div className="h-16 w-16 rounded-full bg-fractal-ocre text-white flex items-center justify-center font-bold text-xl">
+                {profile.displayName.slice(0, 2).toUpperCase()}
+              </div>
+            )}
           </div>
           <p className="mt-2 text-sm font-display font-bold text-ink">
-            {profile.display_name || profile.username}
+            {profile.displayName || profile.slug}
           </p>
           {profile.bio && (
             <p className="mt-1 text-[10px] leading-snug text-center text-muted line-clamp-3">{profile.bio}</p>

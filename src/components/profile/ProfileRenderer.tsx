@@ -134,7 +134,12 @@ export function ProfileRenderer({
   const custom = themeOverride ? customOverride : resolveCustomTokens(profile.customTokens, plan);
   const fontsHref = googleFontsHref(theme);
   const links = profile.links.filter((l) => l.enabled !== false);
-  const href = (l: LinkItem) => (preview ? "#" : trackBase ? `${trackBase}/${l.id}` : safeUrl(l.url) ?? "#");
+  
+  const href = (l: LinkItem): string => {
+    if (preview) return "#";
+    if (trackBase) return `${trackBase}/${l.id}`;
+    return safeUrl(l.url) ?? "#";
+  };
 
   // Le plan gratuit affiche toujours le badge ; Pro et Business peuvent le retirer.
   const showBadge = !planAtLeast(plan, "pro") || profile.showBadge !== false;
