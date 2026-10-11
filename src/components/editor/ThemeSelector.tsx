@@ -14,7 +14,6 @@ import "./editor.css";
 
 const PLAN_LABEL: Record<Plan, string> = { free: "Gratuit", pro: "Pro", business: "Business" };
 const GROUPS: Plan[] = ["free", "pro", "business"];
-
 const COLOR_FIELDS = [
   ["accent", "Couleur principale"],
   ["accent2", "Couleur secondaire"],
@@ -44,10 +43,8 @@ const ERRORS: Record<string, string> = {
 type Props = {
   profile: Profile;
   plan: Plan;
-  /** Thème actuellement affiché (déjà replié sur un thème gratuit si le plan a expiré). */
   currentThemeId: string;
   currentCustom: CustomTokens;
-  /** Thème choisi mais mis en pause (abonnement expiré). */
   pausedThemeId?: string;
 };
 
@@ -62,15 +59,9 @@ function Thumb({ theme, profile, plan }: { theme: Theme; profile: Profile; plan:
 }
 
 export function ThemeSelector({ profile, plan, currentThemeId, currentCustom, pausedThemeId }: Props) {
-  // Nouveau profil vide : on montre les thèmes avec des données d'exemple.
   const base: Profile = profile.links.length
     ? profile
-    : {
-        ...profile,
-        links: SAMPLE_PROFILE.links,
-        socials: profile.socials.length ? profile.socials : SAMPLE_PROFILE.socials,
-        blocks: SAMPLE_PROFILE.blocks,
-      };
+    : { ...profile, links: SAMPLE_PROFILE.links, socials: profile.socials.length ? profile.socials : SAMPLE_PROFILE.socials, blocks: SAMPLE_PROFILE.blocks };
 
   const [selectedId, setSelectedId] = useState(currentThemeId);
   const [appliedId, setAppliedId] = useState(currentThemeId);
@@ -115,50 +106,10 @@ export function ThemeSelector({ profile, plan, currentThemeId, currentCustom, pa
   }
 
   return (
-    <div className="mx-auto grid max-w-6xl gap-10 px-6 py-10 lg:grid-cols-[1fr_360px]">
-      {/* Aperçu en direct */}
-      <aside className="order-first lg:order-last">
-        <div className="lg:sticky lg:top-6">
-          <div className="nd-phone mx-auto">
-            <div className="nd-screen">
-              <ProfileRenderer
-                profile={{ ...base, themeId: selected.id }}
-                plan={plan}
-                themeOverride={selected}
-                customOverride={customAllowed ? custom : undefined}
-                preview
-              />
-            </div>
-          </div>
-          <div className="mx-auto mt-5 max-w-[340px] text-center">
-            <p className="font-display text-lg font-bold">{selected.name}</p>
-            <p className="text-xs text-muted">Thème {PLAN_LABEL[selected.plan]}</p>
-            {themeAllowed ? (
-              <button
-                onClick={apply}
-                disabled={!dirty || status.kind === "saving"}
-                className="mt-4 w-full rounded-full bg-ink px-5 py-3 text-sm font-medium text-bg transition disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                {status.kind === "saving" ? "Enregistrement…" : dirty ? "Appliquer ce thème" : "Thème en place"}
-              </button>
-            ) : (
-              <Link
-                href="/#tarifs"
-                className={`mt-4 flex w-full items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold text-white ${grad}`}
-              >
-                <Crown size={16} /> Passer au plan {PLAN_LABEL[selected.plan]}
-              </Link>
-            )}
-            <p role="status" className={`mt-3 min-h-5 text-xs ${status.kind === "error" ? "text-fractal-terra" : "text-muted"}`}>
-              {status.msg}
-            </p>
-          </div>
-        </div>
-      </aside>
-
-      {/* Choix du thème */}
+    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10 lg:grid lg:grid-cols-[1fr_360px] lg:gap-10">
+      {/* ===== THÈMES : en premier dans le DOM → visibles en haut sur mobile ===== */}
       <section>
-        <h1 className="font-display text-3xl font-bold">Thèmes</h1>
+        <h1 className="font-display text-2xl font-bold sm:text-3xl">Thèmes</h1>
         <p className="mt-1 text-sm text-muted">
           Clique sur un thème pour le voir sur ta page. Les thèmes verrouillés restent visibles en aperçu.
         </p>
@@ -178,7 +129,7 @@ export function ThemeSelector({ profile, plan, currentThemeId, currentCustom, pa
               <h2 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-muted">
                 {PLAN_LABEL[g]} <span className="font-normal normal-case">({themes.length})</span>
               </h2>
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
                 {themes.map((t) => {
                   const locked = !planAtLeast(plan, t.plan);
                   const isSelected = t.id === selectedId;
@@ -215,7 +166,11 @@ export function ThemeSelector({ profile, plan, currentThemeId, currentCustom, pa
                       </div>
                       <div className="mt-2 flex items-center justify-between gap-2 px-1">
                         <span className="text-sm font-semibold">{t.name}</span>
-                        {locked && <span className="text-[10px] font-semibold uppercase text-fractal-terra">{PLAN_LABEL[t.plan]}</span>}
+                        {locked && (
+                          <span className="text-[10px] font-semibold uppercase text-fractal-terra">
+                            {PLAN_LABEL[t.plan]}
+                          </span>
+                        )}
                       </div>
                     </button>
                   );
@@ -225,27 +180,34 @@ export function ThemeSelector({ profile, plan, currentThemeId, currentCustom, pa
           );
         })}
 
-        {/* Couleurs personnalisées (Pro+) */}
-        <div className="mt-12 rounded-3xl border border-line bg-surface p-6 shadow-soft">
+        {/* Couleurs personnalisées */}
+        <div className="mt-12 rounded-3xl border border-line bg-surface p-4 shadow-soft sm:p-6">
           <div className="flex items-start justify-between gap-4">
             <div>
               <h2 className="font-display text-xl font-bold">Couleurs personnalisées</h2>
-              <p className="mt-1 text-sm text-muted">Adapte le thème à ta marque. Les changements s&apos;affichent en direct.</p>
+              <p className="mt-1 text-sm text-muted">
+                Adapte le thème à ta marque. Les changements s&apos;affichent en direct.
+              </p>
             </div>
             {customAllowed && (
-              <button onClick={() => setCustom({})} className="flex items-center gap-1.5 text-xs font-medium text-muted hover:text-ink">
+              <button
+                onClick={() => setCustom({})}
+                className="flex items-center gap-1.5 text-xs font-medium text-muted hover:text-ink"
+              >
                 <RotateCcw size={13} /> Réinitialiser
               </button>
             )}
           </div>
-
           {customAllowed ? (
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
               {COLOR_FIELDS.map(([key, label]) => {
                 const themeValue = selected.tokens[key];
                 const fallback = /^#[0-9a-fA-F]{6}$/.test(themeValue) ? themeValue : "#ffffff";
                 return (
-                  <label key={key} className="flex items-center justify-between gap-3 rounded-2xl bg-soft px-4 py-3 text-sm">
+                  <label
+                    key={key}
+                    className="flex items-center justify-between gap-3 rounded-2xl bg-soft px-4 py-3 text-sm"
+                  >
                     <span>{label}</span>
                     <input
                       type="color"
@@ -284,6 +246,49 @@ export function ThemeSelector({ profile, plan, currentThemeId, currentCustom, pa
           )}
         </div>
       </section>
+
+      {/* ===== APERÇU : en second sur mobile (sous les thèmes), à droite sur desktop ===== */}
+      <aside className="mt-10 lg:mt-0">
+        <div className="lg:sticky lg:top-6">
+          <div className="nd-phone mx-auto">
+            <div className="nd-screen">
+              <ProfileRenderer
+                profile={{ ...base, themeId: selected.id }}
+                plan={plan}
+                themeOverride={selected}
+                customOverride={customAllowed ? custom : undefined}
+                preview
+              />
+            </div>
+          </div>
+          <div className="mx-auto mt-5 max-w-[340px] text-center">
+            <p className="font-display text-lg font-bold">{selected.name}</p>
+            <p className="text-xs text-muted">Thème {PLAN_LABEL[selected.plan]}</p>
+            {themeAllowed ? (
+              <button
+                onClick={apply}
+                disabled={!dirty || status.kind === "saving"}
+                className="mt-4 w-full rounded-full bg-ink px-5 py-3 text-sm font-medium text-bg transition disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {status.kind === "saving" ? "Enregistrement…" : dirty ? "Appliquer ce thème" : "Thème en place"}
+              </button>
+            ) : (
+              <Link
+                href="/#tarifs"
+                className={`mt-4 flex w-full items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold text-white ${grad}`}
+              >
+                <Crown size={16} /> Passer au plan {PLAN_LABEL[selected.plan]}
+              </Link>
+            )}
+            <p
+              role="status"
+              className={`mt-3 min-h-5 text-xs ${status.kind === "error" ? "text-fractal-terra" : "text-muted"}`}
+            >
+              {status.msg}
+            </p>
+          </div>
+        </div>
+      </aside>
     </div>
   );
 }
