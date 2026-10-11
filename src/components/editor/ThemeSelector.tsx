@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { Check, Crown, Lock, RotateCcw } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Check, Crown, Lock, RotateCcw, X } from "lucide-react";
 import { grad } from "@/components/landing/ui";
 import { ProfileRenderer } from "@/components/profile/ProfileRenderer";
 import { canUse } from "@/lib/entitlements";
@@ -22,7 +22,6 @@ const COLOR_FIELDS = [
   ["onAccent", "Texte sur couleur principale"],
   ["bg", "Fond (remplace le fond du thème)"],
 ] as const;
-
 const RADIUS_OPTIONS = [
   ["", "Selon le thème"],
   ["0px", "Carré"],
@@ -30,7 +29,6 @@ const RADIUS_OPTIONS = [
   ["24px", "Très arrondi"],
   ["999px", "Pilule"],
 ] as const;
-
 const ERRORS: Record<string, string> = {
   unauthenticated: "Ta session a expiré. Reconnecte-toi.",
   theme_locked: "Ce thème n'est pas inclus dans ton plan.",
@@ -39,6 +37,19 @@ const ERRORS: Record<string, string> = {
   custom_token_invalid: "Une des couleurs n'est pas valide.",
   badge_locked: "Cette option n'est pas incluse dans ton plan.",
 };
+
+/** Détection mobile (< 1024px) pour déclencher le popup au lieu de l'aperçu sticky. */
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 1023px)");
+    const onChange = () => setIsMobile(mq.matches);
+    onChange();
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+  return isMobile;
+}
 
 type Props = {
   profile: Profile;
@@ -59,6 +70,7 @@ function Thumb({ theme, profile, plan }: { theme: Theme; profile: Profile; plan:
 }
 
 export function ThemeSelector({ profile, plan, currentThemeId, currentCustom, pausedThemeId }: Props) {
+  const isMobile = useIsMobile();
   const base: Profile = profile.links.length
     ? profile
     : { ...profile, links: SAMPLE_PROFILE.links, socials: profile.socials.length ? profile.socials : SAMPLE_PROFILE.socials, blocks: SAMPLE_PROFILE.blocks };
@@ -68,6 +80,7 @@ export function ThemeSelector({ profile, plan, currentThemeId, currentCustom, pa
   const [custom, setCustom] = useState<CustomTokens>(currentCustom);
   const [appliedCustom, setAppliedCustom] = useState<CustomTokens>(currentCustom);
   const [status, setStatus] = useState<{ kind: "idle" | "saving" | "ok" | "error"; msg?: string }>({ kind: "idle" });
+  const [popupTheme, setPopupTheme] = useState<Theme | null>(null);
 
   const selected = getTheme(selectedId) ?? ALL_THEMES[0];
   const customAllowed = canUse(plan, "customColors");
@@ -95,23 +108,42 @@ export function ThemeSelector({ profile, plan, currentThemeId, currentCustom, pa
         const known = ERRORS[data?.error];
         const need = data?.requiredPlan ? ` (plan ${PLAN_LABEL[data.requiredPlan as Plan]})` : "";
         setStatus({ kind: "error", msg: known ? known + need : "Enregistrement impossible. Réessaie." });
-        return;
+        return false;
       }
       setAppliedId(selectedId);
       setAppliedCustom(customAllowed ? custom : {});
       setStatus({ kind: "ok", msg: "Thème appliqué. Ta page est à jour." });
+      return true;
     } catch {
       setStatus({ kind: "error", msg: "Connexion impossible. Réessaie." });
+      return false;
     }
   }
 
+  /** Clic sur une carte : sélection directe ; sur mobile, ouvre aussi le popup. */
+  function openTheme(t: Theme) {
+    setSelectedId(t.id);
+    setStatus({ kind: "idle" });
+    if (isMobile) setPopupTheme(t);
+  }
+
+  /** Bouton "Valider" du popup mobile. */
+  async function confirmPopup() {
+    if (!popupTheme) return;
+    const ok = await apply();
+    if (ok) setPopupTheme(null);
+  }
+
+  const popupLocked = popupTheme ? !planAtLeast(plan, popupTheme.plan) : false;
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10 lg:grid lg:grid-cols-[1fr_360px] lg:gap-10">
-      {/* ===== THÈMES : en premier dans le DOM → visibles en haut sur mobile ===== */}
+      {/* ===== THÈMES ===== */}
       <section>
         <h1 className="font-display text-2xl font-bold sm:text-3xl">Thèmes</h1>
         <p className="mt-1 text-sm text-muted">
-          Clique sur un thème pour le voir sur ta page. Les thèmes verrouillés restent visibles en aperçu.
+          {isMobile ? "Touche un thème pour le prévisualiser." : "Clique sur un thème pour le voir sur ta page."} Les
+          thèmes verrouillés restent visibles en aperçu.
         </p>
 
         {paused && (
@@ -136,10 +168,7 @@ export function ThemeSelector({ profile, plan, currentThemeId, currentCustom, pa
                   return (
                     <button
                       key={t.id}
-                      onClick={() => {
-                        setSelectedId(t.id);
-                        setStatus({ kind: "idle" });
-                      }}
+                      onClick={() => openTheme(t)}
                       aria-pressed={isSelected}
                       className={`group rounded-2xl border-2 p-2 text-left transition ${
                         isSelected ? "border-fractal-ocre bg-surface shadow-soft" : "border-transparent hover:border-line"
@@ -167,9 +196,7 @@ export function ThemeSelector({ profile, plan, currentThemeId, currentCustom, pa
                       <div className="mt-2 flex items-center justify-between gap-2 px-1">
                         <span className="text-sm font-semibold">{t.name}</span>
                         {locked && (
-                          <span className="text-[10px] font-semibold uppercase text-fractal-terra">
-                            {PLAN_LABEL[t.plan]}
-                          </span>
+                          <span className="text-[10px] font-semibold uppercase text-fractal-terra">{PLAN_LABEL[t.plan]}</span>
                         )}
                       </div>
                     </button>
@@ -185,15 +212,10 @@ export function ThemeSelector({ profile, plan, currentThemeId, currentCustom, pa
           <div className="flex items-start justify-between gap-4">
             <div>
               <h2 className="font-display text-xl font-bold">Couleurs personnalisées</h2>
-              <p className="mt-1 text-sm text-muted">
-                Adapte le thème à ta marque. Les changements s&apos;affichent en direct.
-              </p>
+              <p className="mt-1 text-sm text-muted">Adapte le thème à ta marque. Les changements s&apos;affichent en direct.</p>
             </div>
             {customAllowed && (
-              <button
-                onClick={() => setCustom({})}
-                className="flex items-center gap-1.5 text-xs font-medium text-muted hover:text-ink"
-              >
+              <button onClick={() => setCustom({})} className="flex items-center gap-1.5 text-xs font-medium text-muted hover:text-ink">
                 <RotateCcw size={13} /> Réinitialiser
               </button>
             )}
@@ -204,10 +226,7 @@ export function ThemeSelector({ profile, plan, currentThemeId, currentCustom, pa
                 const themeValue = selected.tokens[key];
                 const fallback = /^#[0-9a-fA-F]{6}$/.test(themeValue) ? themeValue : "#ffffff";
                 return (
-                  <label
-                    key={key}
-                    className="flex items-center justify-between gap-3 rounded-2xl bg-soft px-4 py-3 text-sm"
-                  >
+                  <label key={key} className="flex items-center justify-between gap-3 rounded-2xl bg-soft px-4 py-3 text-sm">
                     <span>{label}</span>
                     <input
                       type="color"
@@ -227,28 +246,22 @@ export function ThemeSelector({ profile, plan, currentThemeId, currentCustom, pa
                   className="rounded-lg border border-line bg-surface px-3 py-1.5 text-sm"
                 >
                   {RADIUS_OPTIONS.map(([v, l]) => (
-                    <option key={v} value={v}>
-                      {l}
-                    </option>
+                    <option key={v} value={v}>{l}</option>
                   ))}
                 </select>
               </label>
             </div>
           ) : (
             <div className="mt-5 flex flex-col items-start gap-3 rounded-2xl bg-soft p-5 text-sm">
-              <span className="flex items-center gap-2 font-medium">
-                <Lock size={15} /> Réservé aux plans Pro et Business
-              </span>
-              <Link href="/#tarifs" className={`rounded-full px-5 py-2 text-sm font-semibold text-white ${grad}`}>
-                Débloquer avec Pro
-              </Link>
+              <span className="flex items-center gap-2 font-medium"><Lock size={15} /> Réservé aux plans Pro et Business</span>
+              <Link href="/#tarifs" className={`rounded-full px-5 py-2 text-sm font-semibold text-white ${grad}`}>Débloquer avec Pro</Link>
             </div>
           )}
         </div>
       </section>
 
-      {/* ===== APERÇU : en second sur mobile (sous les thèmes), à droite sur desktop ===== */}
-      <aside className="mt-10 lg:mt-0">
+      {/* ===== APERÇU sticky (desktop uniquement) ===== */}
+      <aside className="mt-10 lg:mt-0 hidden lg:block">
         <div className="lg:sticky lg:top-6">
           <div className="nd-phone mx-auto">
             <div className="nd-screen">
@@ -273,22 +286,76 @@ export function ThemeSelector({ profile, plan, currentThemeId, currentCustom, pa
                 {status.kind === "saving" ? "Enregistrement…" : dirty ? "Appliquer ce thème" : "Thème en place"}
               </button>
             ) : (
-              <Link
-                href="/#tarifs"
-                className={`mt-4 flex w-full items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold text-white ${grad}`}
-              >
+              <Link href="/#tarifs" className={`mt-4 flex w-full items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold text-white ${grad}`}>
                 <Crown size={16} /> Passer au plan {PLAN_LABEL[selected.plan]}
               </Link>
             )}
-            <p
-              role="status"
-              className={`mt-3 min-h-5 text-xs ${status.kind === "error" ? "text-fractal-terra" : "text-muted"}`}
-            >
+            <p role="status" className={`mt-3 min-h-5 text-xs ${status.kind === "error" ? "text-fractal-terra" : "text-muted"}`}>
               {status.msg}
             </p>
           </div>
         </div>
       </aside>
+
+      {/* ===== POPUP mobile : prévisualisation + Annuler / Valider ===== */}
+      {isMobile && popupTheme && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-ink/60 p-4 backdrop-blur-sm"
+          onClick={() => setPopupTheme(null)}
+        >
+          <div
+            className="w-full max-w-sm rounded-3xl bg-surface p-4 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <p className="font-display text-lg font-bold">{popupTheme.name}</p>
+              <button onClick={() => setPopupTheme(null)} aria-label="Fermer" className="p-1 rounded-full hover:bg-soft text-muted">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="nd-phone nd-phone-sm mx-auto">
+              <div className="nd-screen">
+                <ProfileRenderer
+                  profile={{ ...base, themeId: popupTheme.id }}
+                  plan={plan}
+                  themeOverride={popupTheme}
+                  customOverride={customAllowed ? custom : undefined}
+                  preview
+                />
+              </div>
+            </div>
+            <div className="mt-4 flex gap-3">
+              <button
+                onClick={() => setPopupTheme(null)}
+                className="flex-1 rounded-full border border-line px-4 py-3 text-sm font-medium text-muted hover:bg-soft"
+              >
+                Annuler
+              </button>
+              {popupLocked ? (
+                <Link
+                  href="/#tarifs"
+                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-full px-4 py-3 text-sm font-semibold text-white ${grad}`}
+                >
+                  <Crown size={15} /> Plan {PLAN_LABEL[popupTheme.plan]}
+                </Link>
+              ) : (
+                <button
+                  onClick={confirmPopup}
+                  disabled={status.kind === "saving"}
+                  className="flex-1 rounded-full bg-ink px-4 py-3 text-sm font-medium text-bg disabled:opacity-40"
+                >
+                  {status.kind === "saving" ? "Enregistrement…" : "Valider"}
+                </button>
+              )}
+            </div>
+            {status.msg && (
+              <p role="status" className={`mt-3 text-center text-xs ${status.kind === "error" ? "text-fractal-terra" : "text-muted"}`}>
+                {status.msg}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
