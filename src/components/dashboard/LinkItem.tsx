@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { Reorder, useDragControls, AnimatePresence, motion } from "framer-motion";
-import { GripVertical, Settings, Trash2, Check, X } from "lucide-react";
+import { GripVertical, Settings, Trash2 } from "lucide-react";
 import type { LinkItem as LinkItemType } from "@/lib/types";
 import { getBlockMeta, normalizeUrl } from "./blockMeta";
 import { useToast } from "./Toast";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 export const validUrl = (v: string) => {
   try {
@@ -78,9 +79,7 @@ export function LinkItem({ link, onUpdate, onDelete, onDragEnd }: Props) {
           </p>
         </div>
 
-        {!link.enabled && (
-          <span className="text-xs text-muted bg-soft px-2 py-1 rounded-full">Brouillon</span>
-        )}
+        {!link.enabled && <span className="text-xs text-muted bg-soft px-2 py-1 rounded-full">Brouillon</span>}
 
         <button
           onClick={() => setOpen((o) => !o)}
@@ -93,32 +92,13 @@ export function LinkItem({ link, onUpdate, onDelete, onDragEnd }: Props) {
           <Settings size={16} />
         </button>
 
-        {confirming ? (
-          <span className="flex items-center gap-1">
-            <button
-              onClick={() => onDelete(link.id)}
-              aria-label="Confirmer"
-              className="p-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
-            >
-              <Check size={16} />
-            </button>
-            <button
-              onClick={() => setConfirming(false)}
-              aria-label="Annuler"
-              className="p-2 rounded-lg hover:bg-soft text-muted transition-colors"
-            >
-              <X size={16} />
-            </button>
-          </span>
-        ) : (
-          <button
-            onClick={() => setConfirming(true)}
-            aria-label="Supprimer"
-            className="p-2 rounded-lg hover:bg-red-50 text-muted hover:text-red-600 transition-colors"
-          >
-            <Trash2 size={16} />
-          </button>
-        )}
+        <button
+          onClick={() => setConfirming(true)}
+          aria-label="Supprimer"
+          className="p-2 rounded-lg hover:bg-red-50 text-muted hover:text-red-600 transition-colors"
+        >
+          <Trash2 size={16} />
+        </button>
       </div>
 
       <AnimatePresence initial={false}>
@@ -167,6 +147,20 @@ export function LinkItem({ link, onUpdate, onDelete, onDragEnd }: Props) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Confirmation de suppression (portal : aucun souci de stacking dans la liste animée) */}
+      <ConfirmDialog
+        open={confirming}
+        title="Supprimer ce bloc ?"
+        message={`« ${link.title} » sera définitivement retiré de ta page.`}
+        confirmLabel="Supprimer"
+        danger
+        onConfirm={() => {
+          setConfirming(false);
+          onDelete(link.id);
+        }}
+        onCancel={() => setConfirming(false)}
+      />
     </Reorder.Item>
   );
 }

@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Link2, Copy, QrCode, Trash2, X, Sparkles } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useToast } from "./Toast";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 type ShortLink = {
   id: string;
@@ -29,6 +30,7 @@ export function ShortLinkManager({ userId, plan }: Props) {
   const [target, setTarget] = useState("");
   const [busy, setBusy] = useState(false);
   const [qrSlug, setQrSlug] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ShortLink | null>(null);
 
   const quota = QUOTAS[plan] ?? QUOTAS.free;
   const atLimit = links.length >= quota;
@@ -78,7 +80,6 @@ export function ShortLinkManager({ userId, plan }: Props) {
   };
 
   const remove = async (id: string) => {
-    if (!confirm("Supprimer ce raccourci ?")) return;
     const { error } = await supabase.from("short_links").delete().eq("id", id);
     if (error) return toast("Suppression échouée", false);
     setLinks((prev) => prev.filter((l) => l.id !== id));
@@ -235,7 +236,7 @@ export function ShortLinkManager({ userId, plan }: Props) {
                   <QrCode size={14} />
                 </button>
                 <button
-                  onClick={() => remove(l.id)}
+                  onClick={() => setDeleteTarget(l)}
                   aria-label="Supprimer"
                   className="p-1.5 rounded-md hover:bg-red-50 text-muted hover:text-red-600 transition-colors"
                 >
@@ -246,6 +247,20 @@ export function ShortLinkManager({ userId, plan }: Props) {
           ))}
         </ul>
       )}
+
+      {/* Confirmation de suppression */}
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="Supprimer ce raccourci ?"
+        message={`ndeletik.com/go/${deleteTarget?.slug} cessera de fonctionner immédiatement.`}
+        confirmLabel="Supprimer"
+        danger
+        onConfirm={() => {
+          if (deleteTarget) remove(deleteTarget.id);
+          setDeleteTarget(null);
+        }}
+        onCancel={() => setDeleteTarget(null)}
+      />
 
       {qrSlug && <QrModal slug={qrSlug} onClose={() => setQrSlug(null)} />}
       {toastNode}
@@ -262,9 +277,7 @@ function QrModal({ slug, onClose }: { slug: string; onClose: () => void }) {
       try {
         const { toDataURL } = await import("qrcode");
         const url =
-          typeof window !== "undefined"
-            ? `${window.location.origin}/go/${slug}`
-            : `/go/${slug}`;
+          typeof window !== "undefined" ? `${window.location.origin}/go/${slug}` : `/go/${slug}`;
         const data = await toDataURL(url, {
           margin: 2,
           width: 400,
@@ -278,7 +291,7 @@ function QrModal({ slug, onClose }: { slug: string; onClose: () => void }) {
   }, [slug]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/50 p-4" onClick={onClose}>
       <div
         className="bg-surface rounded-2xl p-6 border border-line shadow-xl max-w-sm w-full"
         onClick={(e) => e.stopPropagation()}

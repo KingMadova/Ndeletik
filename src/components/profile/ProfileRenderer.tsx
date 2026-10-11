@@ -175,19 +175,17 @@ export function ProfileRenderer({
           {profile.bio && <p className="nd-bio">{profile.bio}</p>}
           {profile.socials.length > 0 && (
             <nav className="nd-socials" aria-label="Réseaux sociaux">
-              {profile.socials.map((s) => {
-                const socialHref = preview ? "#" : (safeUrl(s.url) ?? "#");
-                return (
-                  <a
-                    key={s.type}
-                    href={socialHref}
-                    aria-label={s.type}
-                    rel="noopener noreferrer"
-                  >
-                    <SocialIcon type={s.type} />
-                  </a>
-                );
-              })}
+              {profile.socials.map((s) => (
+                <a
+                  key={s.type}
+                  href={preview ? "#" : safeUrl(s.url) ?? "#"}
+                  aria-label={s.type}
+                  rel="noopener noreferrer"
+                  className="nd-social"
+                >
+                  <SocialIcon type={s.type} />
+                </a>
+              ))}
             </nav>
           )}
         </header>
