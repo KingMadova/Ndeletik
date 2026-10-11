@@ -143,7 +143,7 @@ export const BUSINESS_THEMES: Theme[] = [
     },
   },
   {
-    // Modèle 18 : immobilier, bannières bleues arrondies sur fond gris clair
+    // Modèle 18 : immobilier, « nouveau format » : bannières bleues arrondies sur fond gris clair
     id: "immobilier",
     name: "Immobilier",
     plan: "business",

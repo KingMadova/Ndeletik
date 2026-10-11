@@ -3,30 +3,27 @@ export type { Plan };
 
 /** Les 4 familles de mise en page des liens. */
 export type LinkLayout = "pills" | "cards" | "grid" | "banners";
-
 /** Style des boutons / cartes. */
 export type ButtonStyle = "solid" | "outline" | "glass" | "soft" | "neu" | "gradient";
-
 /** Variantes d'en-tête. */
 export type HeaderVariant = "center" | "cover" | "arc";
-
 export type AvatarShape = "circle" | "blob" | "rounded";
 
 /** Valeurs CSS pures : tout le look d'un thème tient ici. */
 export interface ThemeTokens {
-  bg: string;
-  surface: string;
+  bg: string;        // n'importe quelle valeur CSS `background`
+  surface: string;   // fond des cartes / boutons doux
   text: string;
   muted: string;
   accent: string;
-  accent2: string;
-  onAccent: string;
+  accent2: string;   // 2e couleur des dégradés
+  onAccent: string;  // texte posé sur l'accent
   border: string;
-  radius: string;
+  radius: string;    // ex. "999px", "16px", "0px"
   shadow: string;
-  headerBg: string;
-  fontDisplay: string;
-  fontBody: string;
+  headerBg: string;  // fond du cover / de l'arc d'en-tête
+  fontDisplay: string; // nom de police (titres)
+  fontBody: string;    // nom de police (texte)
 }
 
 export interface Theme {
@@ -40,7 +37,7 @@ export interface Theme {
   dark: boolean;
   uppercaseLinks?: boolean;
   uppercaseName?: boolean;
-  tracking?: string;
+  tracking?: string; // letter-spacing des liens, ex. "0.12em"
   /** Polices Google, format API css2 : "Playfair+Display:wght@400;700". */
   fonts: string[];
   tokens: ThemeTokens;
@@ -48,35 +45,23 @@ export interface Theme {
 
 /** Ce qu'un utilisateur Pro peut surcharger (liste blanche). */
 export const CUSTOMIZABLE_KEYS = ["bg", "surface", "text", "accent", "accent2", "onAccent", "radius"] as const;
-
 export type CustomTokens = Partial<Pick<ThemeTokens, (typeof CUSTOMIZABLE_KEYS)[number]>>;
 
 /* ---------- Profil ---------- */
 export type SocialType =
-  | "instagram"
-  | "tiktok"
-  | "youtube"
-  | "facebook"
-  | "whatsapp"
-  | "x"
-  | "linkedin"
-  | "telegram"
-  | "pinterest"
-  | "email";
+  | "instagram" | "tiktok" | "youtube" | "facebook" | "whatsapp"
+  | "x" | "linkedin" | "telegram" | "pinterest" | "email";
 
-export interface Social {
-  type: SocialType;
-  url: string;
-}
+export interface Social { type: SocialType; url: string }
 
 export interface LinkItem {
   id: string;
   title: string;
   subtitle?: string;
   url: string;
-  icon?: string;
-  image?: string;
-  cta?: string;
+  icon?: string;     // clé dans components/profile/icons.tsx
+  image?: string;    // mise en page "banners"
+  cta?: string;      // bouton des bannières
   featured?: boolean;
   enabled?: boolean;
 }

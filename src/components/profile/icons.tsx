@@ -4,9 +4,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { IconType } from "react-icons";
-import {
-  FaEnvelope, FaFacebookF, FaInstagram, FaLinkedinIn, FaPinterestP, FaTelegram, FaTiktok, FaWhatsapp, FaXTwitter, FaYoutube,
-} from "react-icons/fa6";
+import { FaEnvelope, FaFacebookF, FaInstagram, FaLinkedinIn, FaPinterestP, FaTelegram, FaTiktok, FaWhatsapp, FaXTwitter, FaYoutube } from "react-icons/fa6";
 import type { SocialType } from "@/lib/themes/types";
 
 export const LINK_ICONS: Record<string, LucideIcon> = {

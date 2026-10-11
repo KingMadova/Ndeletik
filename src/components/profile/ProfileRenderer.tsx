@@ -9,16 +9,20 @@ import { BadgeCheck, ChevronDown, ChevronRight, LinkIcon, SocialIcon } from "./i
 
 type Props = {
   profile: Profile;
+  /** Plan ACTIF du propriétaire (voir effectivePlan). */
   plan: Plan;
+  /** Aperçu d'un thème précis, même verrouillé (sélecteur de thèmes). */
   themeOverride?: Theme;
+  /** Couleurs personnalisées à prévisualiser (avec themeOverride). */
   customOverride?: CustomTokens;
+  /** Aperçu : liens neutralisés, pas de formulaire actif. */
   preview?: boolean;
+  /** Base du lien de suivi des clics : /go/[id]. */
   trackBase?: string;
 };
 
 function LinkView({ link, layout, href }: { link: LinkItem; layout: Theme["layout"]; href: string }) {
   const featured = link.featured ? "true" : undefined;
-
   if (layout === "banners") {
     const img = safeImageUrl(link.image);
     return (
@@ -37,7 +41,6 @@ function LinkView({ link, layout, href }: { link: LinkItem; layout: Theme["layou
       </a>
     );
   }
-
   if (layout === "grid") {
     return (
       <a href={href} className="nd-link" data-featured={featured}>
@@ -46,7 +49,6 @@ function LinkView({ link, layout, href }: { link: LinkItem; layout: Theme["layou
       </a>
     );
   }
-
   if (layout === "cards") {
     return (
       <a href={href} className="nd-link" data-featured={featured}>
@@ -59,7 +61,7 @@ function LinkView({ link, layout, href }: { link: LinkItem; layout: Theme["layou
       </a>
     );
   }
-
+  // pills
   return (
     <a href={href} className="nd-link" data-featured={featured}>
       {link.icon && <span className="nd-ic"><LinkIcon name={link.icon} size={16} /></span>}
@@ -93,9 +95,7 @@ function BlockView({ block, slug, preview }: { block: Block; slug: string; previ
         <section className="nd-card">
           {block.items.map((f) => (
             <details key={f.q} className="nd-faq">
-              <summary>
-                {f.q} <ChevronDown size={16} aria-hidden />
-              </summary>
+              <summary>{f.q} <ChevronDown size={16} aria-hidden /></summary>
               <p className="nd-p">{f.a}</p>
             </details>
           ))}
@@ -116,30 +116,17 @@ function BlockView({ block, slug, preview }: { block: Block; slug: string; previ
   }
 }
 
-export function ProfileRenderer({
-  profile,
-  plan,
-  themeOverride,
-  customOverride,
-  preview = false,
-  trackBase = "/go",
-}: Props) {
+export function ProfileRenderer({ profile, plan, themeOverride, customOverride, preview = false, trackBase = "/go" }: Props) {
   const theme = themeOverride ?? resolveTheme(profile.themeId, plan).theme;
   const custom = themeOverride ? customOverride : resolveCustomTokens(profile.customTokens, plan);
   const fontsHref = googleFontsHref(theme);
   const links = profile.links.filter((l) => l.enabled !== false);
-
-  const href = (l: LinkItem): string => {
-    if (preview) return "#";
-    if (trackBase) return `${trackBase}/${l.id}`;
-    return safeUrl(l.url) ?? "#";
-  };
-
+  const href = (l: LinkItem) => (preview ? "#" : trackBase ? `${trackBase}/${l.id}` : safeUrl(l.url) ?? "#");
+  // Le plan gratuit affiche toujours le badge ; Pro et Business peuvent le retirer.
   const showBadge = !planAtLeast(plan, "pro") || profile.showBadge !== false;
   const avatar = safeImageUrl(profile.avatarUrl);
   const cover = safeImageUrl(profile.coverUrl);
   const initial = profile.displayName.trim().charAt(0).toUpperCase() || "N";
-
   return (
     <div
       className="nd-profile"
@@ -176,30 +163,21 @@ export function ProfileRenderer({
           {profile.socials.length > 0 && (
             <nav className="nd-socials" aria-label="Réseaux sociaux">
               {profile.socials.map((s) => (
-                <a
-                  key={s.type}
-                  href={preview ? "#" : safeUrl(s.url) ?? "#"}
-                  aria-label={s.type}
-                  rel="noopener noreferrer"
-                  className="nd-social"
-                >
+                <a key={s.type} href={preview ? "#" : safeUrl(s.url) ?? "#"} aria-label={s.type} rel="noopener noreferrer">
                   <SocialIcon type={s.type} />
                 </a>
               ))}
             </nav>
           )}
         </header>
-
         <nav className="nd-links" aria-label="Liens">
           {links.map((l) => (
             <LinkView key={l.id} link={l} layout={theme.layout} href={href(l)} />
           ))}
         </nav>
-
         {profile.blocks?.map((b, i) => (
           <BlockView key={i} block={b} slug={profile.slug} preview={preview} />
         ))}
-
         {showBadge && (
           <footer className="nd-foot">
             <Link href="/">Créé avec Ndeletik</Link>

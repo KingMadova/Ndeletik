@@ -39,6 +39,7 @@ export const PRO_THEMES: Theme[] = [
     header: "cover",
     avatarShape: "circle",
     dark: false,
+    uppercaseName: false,
     fonts: ["Cormorant+Garamond:wght@500;600;700", "Inter:wght@400;500;600"],
     tokens: {
       bg: "linear-gradient(135deg,#F5ECE6,#F0E3DC)",
