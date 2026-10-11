@@ -1,13 +1,20 @@
-export const safeUrl = (url: string): boolean => {
+/** Lien cliquable : http(s), mailto, tel uniquement (jamais javascript:). */
+export function safeUrl(u?: string | null): string | undefined {
+  if (!u) return undefined;
   try {
-    const parsed = new URL(url);
-    return ["http:", "https:", "mailto:", "tel:"].includes(parsed.protocol);
+    const p = new URL(u).protocol;
+    return ["http:", "https:", "mailto:", "tel:"].includes(p) ? u : undefined;
   } catch {
-    return false;
+    return undefined;
   }
-};
+}
 
-export const safeImageUrl = (url: string | null | undefined): string | undefined => {
-  if (!url) return undefined;
-  return safeUrl(url) ? url : undefined;
-};
+/** Image : https uniquement (utilisée par le rendu des profils). */
+export function safeImageUrl(u?: string | null): string | undefined {
+  if (!u) return undefined;
+  try {
+    return new URL(u).protocol === "https:" ? u : undefined;
+  } catch {
+    return undefined;
+  }
+}
