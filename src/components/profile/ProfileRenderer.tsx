@@ -9,15 +9,10 @@ import { BadgeCheck, ChevronDown, ChevronRight, LinkIcon, SocialIcon } from "./i
 
 type Props = {
   profile: Profile;
-  /** Plan ACTIF du propriétaire (voir effectivePlan). */
   plan: Plan;
-  /** Aperçu d'un thème précis, même verrouillé (sélecteur de thèmes). */
   themeOverride?: Theme;
-  /** Couleurs personnalisées à prévisualiser (avec themeOverride). */
   customOverride?: CustomTokens;
-  /** Aperçu : liens neutralisés, pas de formulaire actif. */
   preview?: boolean;
-  /** Base du lien de suivi des clics : /go/[id]. */
   trackBase?: string;
 };
 
@@ -65,7 +60,6 @@ function LinkView({ link, layout, href }: { link: LinkItem; layout: Theme["layou
     );
   }
 
-  // pills
   return (
     <a href={href} className="nd-link" data-featured={featured}>
       {link.icon && <span className="nd-ic"><LinkIcon name={link.icon} size={16} /></span>}
@@ -134,14 +128,13 @@ export function ProfileRenderer({
   const custom = themeOverride ? customOverride : resolveCustomTokens(profile.customTokens, plan);
   const fontsHref = googleFontsHref(theme);
   const links = profile.links.filter((l) => l.enabled !== false);
-  
+
   const href = (l: LinkItem): string => {
     if (preview) return "#";
     if (trackBase) return `${trackBase}/${l.id}`;
     return safeUrl(l.url) ?? "#";
   };
 
-  // Le plan gratuit affiche toujours le badge ; Pro et Business peuvent le retirer.
   const showBadge = !planAtLeast(plan, "pro") || profile.showBadge !== false;
   const avatar = safeImageUrl(profile.avatarUrl);
   const cover = safeImageUrl(profile.coverUrl);
@@ -182,16 +175,19 @@ export function ProfileRenderer({
           {profile.bio && <p className="nd-bio">{profile.bio}</p>}
           {profile.socials.length > 0 && (
             <nav className="nd-socials" aria-label="Réseaux sociaux">
-              {profile.socials.map((s) => (
-                <a
-                  key={s.type}
-                  href={preview ? "#" : (safeUrl(s.url) ?? "#")}
-                  aria-label={s.type}
-                  rel="noopener noreferrer"
-                >
-                  <SocialIcon type={s.type} />
-                </a>
-              ))}
+              {profile.socials.map((s) => {
+                const socialHref = preview ? "#" : (safeUrl(s.url) ?? "#");
+                return (
+                  <a
+                    key={s.type}
+                    href={socialHref}
+                    aria-label={s.type}
+                    rel="noopener noreferrer"
+                  >
+                    <SocialIcon type={s.type} />
+                  </a>
+                );
+              })}
             </nav>
           )}
         </header>
