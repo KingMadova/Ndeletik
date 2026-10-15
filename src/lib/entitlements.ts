@@ -1,4 +1,5 @@
 import { planAtLeast, type Plan } from "./plans";
+import { FONT_OPTIONS } from "./themes/fonts";
 import { getTheme } from "./themes/registry";
 import { CUSTOMIZABLE_KEYS, type CustomTokens } from "./themes/types";
 
@@ -35,7 +36,12 @@ export function sanitizeCustomTokens(input: unknown): CustomTokens {
   for (const k of CUSTOMIZABLE_KEYS) {
     const v = (input as Record<string, unknown>)[k];
     if (typeof v !== "string") continue;
-    const ok = k === "radius" ? RADIUS.test(v) : COLOR.test(v);
+    const ok =
+      k === "radius"
+        ? RADIUS.test(v)
+        : k === "fontDisplay" || k === "fontBody"
+          ? (FONT_OPTIONS as readonly string[]).includes(v)
+          : COLOR.test(v);
     if (ok) out[k] = v;
   }
   return out;

@@ -5,7 +5,7 @@ import { safeImageUrl, safeUrl } from "@/lib/safe-url";
 import { resolveCustomTokens, resolveTheme } from "@/lib/themes/registry";
 import { googleFontsHref, themeCssVars } from "@/lib/themes/tokens";
 import type { Block, CustomTokens, LinkItem, Profile, Theme } from "@/lib/themes/types";
-import { BadgeCheck, ChevronDown, ChevronRight, SmartLinkIcon, SocialIcon } from "./icons";
+import { BadgeCheck, ChevronDown, ChevronRight, LinkIcon, SmartLinkIcon, SocialIcon } from "./icons";
 
 type Props = {
   profile: Profile;
@@ -70,6 +70,23 @@ function LinkView({ link, layout, href }: { link: LinkItem; layout: Theme["layou
   );
 }
 
+/** Visuel d'un bloc offre : widget date, image, icône ou emoji. */
+function OfferMedia({ block }: { block: Extract<Block, { type: "offer" }> }) {
+  if (block.dateLabel && block.dateValue) {
+    return (
+      <span className="nd-offer-media nd-offer-date">
+        <span>{block.dateLabel}</span>
+        <span>{block.dateValue}</span>
+      </span>
+    );
+  }
+  const img = safeImageUrl(block.image);
+  if (img) return <span className="nd-offer-media" style={{ backgroundImage: `url("${img}")` }} />;
+  if (block.icon) return <span className="nd-offer-media"><LinkIcon name={block.icon} size={22} /></span>;
+  if (block.emoji) return <span className="nd-offer-media">{block.emoji}</span>;
+  return <span className="nd-offer-media"><LinkIcon name="gift" size={22} /></span>;
+}
+
 function BlockView({ block, slug, preview }: { block: Block; slug: string; preview: boolean }) {
   switch (block.type) {
     case "about":
@@ -113,13 +130,52 @@ function BlockView({ block, slug, preview }: { block: Block; slug: string; previ
           </form>
         </section>
       );
+    case "offer": {
+      const href = preview ? "#" : safeUrl(block.url) ?? undefined;
+      const Tag = href ? "a" : "div";
+      return (
+        <Tag {...(href ? { href, target: "_blank", rel: "noopener noreferrer" } : {})} className="nd-offer">
+          <OfferMedia block={block} />
+          <span className="nd-offer-body">
+            {block.tag && <span className="nd-tag">{block.tag}</span>}
+            <span className="nd-t">{block.title}</span>
+            {block.desc && <span className="nd-s">{block.desc}</span>}
+            {block.cta && <span className="nd-offer-cta">{block.cta}</span>}
+          </span>
+        </Tag>
+      );
+    }
+    case "contact": {
+      const href = preview ? undefined : safeUrl(block.url);
+      const Tag = href ? "a" : "div";
+      return (
+        <Tag {...(href ? { href, target: "_blank", rel: "noopener noreferrer" } : {})} className="nd-offer nd-contact">
+          <span className="nd-offer-media">
+            {block.icon ? <LinkIcon name={block.icon} size={22} /> : block.emoji ?? "📍"}
+          </span>
+          <span className="nd-offer-body">
+            <span className="nd-t">{block.title}</span>
+            {block.text && <span className="nd-s">{block.text}</span>}
+          </span>
+        </Tag>
+      );
+    }
+    case "hint":
+      return (
+        <div className="nd-hint" aria-hidden>
+          <span>{block.emoji ?? "👆"}</span>
+          <span>{block.label}</span>
+        </div>
+      );
+    case "separator":
+      return <div className="nd-sep">{block.label ?? ""}</div>;
   }
 }
 
 export function ProfileRenderer({ profile, plan, themeOverride, customOverride, preview = false, trackBase = "/go" }: Props) {
   const theme = themeOverride ?? resolveTheme(profile.themeId, plan).theme;
   const custom = themeOverride ? customOverride : resolveCustomTokens(profile.customTokens, plan);
-  const fontsHref = googleFontsHref(theme);
+  const fontsHref = googleFontsHref(theme, custom);
   const links = profile.links.filter((l) => l.enabled !== false);
   const href = (l: LinkItem) => (preview ? "#" : trackBase ? `${trackBase}/${l.id}` : safeUrl(l.url) ?? "#");
   // Le plan gratuit affiche toujours le badge ; Pro et Business peuvent le retirer.
