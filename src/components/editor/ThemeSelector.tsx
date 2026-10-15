@@ -1,9 +1,8 @@
 "use client";
-
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { Check, Crown, Lock, RotateCcw, X } from "lucide-react";
-import { grad } from "@/components/landing/ui";
+import { useState } from "react";
+import { Check, Crown, Lock, RotateCcw } from "lucide-react";
+import { grad } from "@/components/landing/ui"; // Assure-toi que ce composant existe
 import { ProfileRenderer } from "@/components/profile/ProfileRenderer";
 import { canUse } from "@/lib/entitlements";
 import { planAtLeast, type Plan } from "@/lib/plans";
@@ -14,348 +13,67 @@ import "./editor.css";
 
 const PLAN_LABEL: Record<Plan, string> = { free: "Gratuit", pro: "Pro", business: "Business" };
 const GROUPS: Plan[] = ["free", "pro", "business"];
-const COLOR_FIELDS = [
-  ["accent", "Couleur principale"],
-  ["accent2", "Couleur secondaire"],
-  ["text", "Texte"],
-  ["surface", "Cartes"],
-  ["onAccent", "Texte sur couleur principale"],
-  ["bg", "Fond (remplace le fond du thème)"],
-] as const;
-const RADIUS_OPTIONS = [
-  ["", "Selon le thème"],
-  ["0px", "Carré"],
-  ["12px", "Arrondi"],
-  ["24px", "Très arrondi"],
-  ["999px", "Pilule"],
-] as const;
-const ERRORS: Record<string, string> = {
-  unauthenticated: "Ta session a expiré. Reconnecte-toi.",
-  theme_locked: "Ce thème n'est pas inclus dans ton plan.",
-  theme_unknown: "Ce thème n'existe pas.",
-  custom_colors_locked: "Les couleurs personnalisées sont réservées aux plans Pro et Business.",
-  custom_token_invalid: "Une des couleurs n'est pas valide.",
-  badge_locked: "Cette option n'est pas incluse dans ton plan.",
-};
+const COLOR_FIELDS = [["accent", "Couleur principale"], ["accent2", "Couleur secondaire"], ["text", "Texte"], ["surface", "Cartes"], ["onAccent", "Texte sur couleur principale"], ["bg", "Fond"]] as const;
+const RADIUS_OPTIONS = [["", "Selon le thème"], ["0px", "Carré"], ["12px", "Arrondi"], ["24px", "Très arrondi"], ["999px", "Pilule"]] as const;
+const ERRORS: Record<string, string> = { unauthenticated: "Session expirée.", theme_locked: "Thème non inclus.", theme_unknown: "Thème inconnu.", custom_colors_locked: "Couleurs réservées Pro/Business.", custom_token_invalid: "Couleur invalide.", badge_locked: "Option non incluse." };
 
-/** Détection mobile (< 1024px) pour déclencher le popup au lieu de l'aperçu sticky. */
-function useIsMobile() {
-  const [isMobile, setIsMobile] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia("(max-width: 1023px)");
-    const onChange = () => setIsMobile(mq.matches);
-    onChange();
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, []);
-  return isMobile;
-}
-
-type Props = {
-  profile: Profile;
-  plan: Plan;
-  currentThemeId: string;
-  currentCustom: CustomTokens;
-  pausedThemeId?: string;
-};
+type Props = { profile: Profile; plan: Plan; currentThemeId: string; currentCustom: CustomTokens; pausedThemeId?: string; };
 
 function Thumb({ theme, profile, plan }: { theme: Theme; profile: Profile; plan: Plan }) {
-  return (
-    <div className="nd-thumb" aria-hidden>
-      <div className="nd-thumb-inner">
-        <ProfileRenderer profile={{ ...profile, themeId: theme.id, blocks: [] }} plan={plan} themeOverride={theme} preview />
-      </div>
-    </div>
-  );
+  return (<div className="nd-thumb" aria-hidden><div className="nd-thumb-inner"><ProfileRenderer profile={{ ...profile, themeId: theme.id, blocks: [] }} plan={plan} themeOverride={theme} preview /></div></div>);
 }
 
 export function ThemeSelector({ profile, plan, currentThemeId, currentCustom, pausedThemeId }: Props) {
-  const isMobile = useIsMobile();
-  const base: Profile = profile.links.length
-    ? profile
-    : { ...profile, links: SAMPLE_PROFILE.links, socials: profile.socials.length ? profile.socials : SAMPLE_PROFILE.socials, blocks: SAMPLE_PROFILE.blocks };
-
+  const base: Profile = profile.links.length ? profile : { ...profile, links: SAMPLE_PROFILE.links, socials: profile.socials.length ? profile.socials : SAMPLE_PROFILE.socials, blocks: SAMPLE_PROFILE.blocks };
   const [selectedId, setSelectedId] = useState(currentThemeId);
   const [appliedId, setAppliedId] = useState(currentThemeId);
   const [custom, setCustom] = useState<CustomTokens>(currentCustom);
   const [appliedCustom, setAppliedCustom] = useState<CustomTokens>(currentCustom);
   const [status, setStatus] = useState<{ kind: "idle" | "saving" | "ok" | "error"; msg?: string }>({ kind: "idle" });
-  const [popupTheme, setPopupTheme] = useState<Theme | null>(null);
-
   const selected = getTheme(selectedId) ?? ALL_THEMES[0];
   const customAllowed = canUse(plan, "customColors");
   const themeAllowed = planAtLeast(plan, selected.plan);
   const dirty = selectedId !== appliedId || JSON.stringify(custom) !== JSON.stringify(appliedCustom);
   const paused = pausedThemeId ? getTheme(pausedThemeId) : undefined;
 
-  function setToken<K extends keyof CustomTokens>(key: K, value: string) {
-    const next = { ...custom };
-    if (value) next[key] = value;
-    else delete next[key];
-    setCustom(next);
-  }
-
+  function setToken<K extends keyof CustomTokens>(key: K, value: string) { const next = { ...custom }; if (value) next[key] = value; else delete next[key]; setCustom(next); }
   async function apply() {
     setStatus({ kind: "saving" });
     try {
-      const res = await fetch("/api/profile/theme", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ themeId: selectedId, customTokens: customAllowed ? custom : undefined }),
-      });
+      const res = await fetch("/api/profile/theme", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ themeId: selectedId, customTokens: customAllowed ? custom : undefined }) });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        const known = ERRORS[data?.error];
-        const need = data?.requiredPlan ? ` (plan ${PLAN_LABEL[data.requiredPlan as Plan]})` : "";
-        setStatus({ kind: "error", msg: known ? known + need : "Enregistrement impossible. Réessaie." });
-        return false;
-      }
-      setAppliedId(selectedId);
-      setAppliedCustom(customAllowed ? custom : {});
-      setStatus({ kind: "ok", msg: "Thème appliqué. Ta page est à jour." });
-      return true;
-    } catch {
-      setStatus({ kind: "error", msg: "Connexion impossible. Réessaie." });
-      return false;
-    }
+      if (!res.ok) { const known = ERRORS[data?.error]; const need = data?.requiredPlan ? ` (plan ${PLAN_LABEL[data.requiredPlan as Plan]})` : ""; setStatus({ kind: "error", msg: known ? known + need : "Erreur." }); return; }
+      setAppliedId(selectedId); setAppliedCustom(customAllowed ? custom : {}); setStatus({ kind: "ok", msg: "Thème appliqué." });
+    } catch { setStatus({ kind: "error", msg: "Connexion impossible." }); }
   }
-
-  /** Clic sur une carte : sélection directe ; sur mobile, ouvre aussi le popup. */
-  function openTheme(t: Theme) {
-    setSelectedId(t.id);
-    setStatus({ kind: "idle" });
-    if (isMobile) setPopupTheme(t);
-  }
-
-  /** Bouton "Valider" du popup mobile. */
-  async function confirmPopup() {
-    if (!popupTheme) return;
-    const ok = await apply();
-    if (ok) setPopupTheme(null);
-  }
-
-  const popupLocked = popupTheme ? !planAtLeast(plan, popupTheme.plan) : false;
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10 lg:grid lg:grid-cols-[1fr_360px] lg:gap-10">
-      {/* ===== THÈMES ===== */}
-      <section>
-        <h1 className="font-display text-2xl font-bold sm:text-3xl">Thèmes</h1>
-        <p className="mt-1 text-sm text-muted">
-          {isMobile ? "Touche un thème pour le prévisualiser." : "Clique sur un thème pour le voir sur ta page."} Les
-          thèmes verrouillés restent visibles en aperçu.
-        </p>
-
-        {paused && (
-          <div role="note" className="mt-5 rounded-2xl border border-line bg-soft p-4 text-sm">
-            Ton thème <strong>{paused.name}</strong> est en pause : ton abonnement a expiré. Il reviendra dès le
-            renouvellement, rien n&apos;est perdu.
-          </div>
-        )}
-
-        {GROUPS.map((g) => {
-          const themes = ALL_THEMES.filter((t) => t.plan === g);
-          if (!themes.length) return null;
-          return (
-            <div key={g} className="mt-8">
-              <h2 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-muted">
-                {PLAN_LABEL[g]} <span className="font-normal normal-case">({themes.length})</span>
-              </h2>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
-                {themes.map((t) => {
-                  const locked = !planAtLeast(plan, t.plan);
-                  const isSelected = t.id === selectedId;
-                  return (
-                    <button
-                      key={t.id}
-                      onClick={() => openTheme(t)}
-                      aria-pressed={isSelected}
-                      className={`group rounded-2xl border-2 p-2 text-left transition ${
-                        isSelected ? "border-fractal-ocre bg-surface shadow-soft" : "border-transparent hover:border-line"
-                      }`}
-                    >
-                      <div className="relative mx-auto w-fit">
-                        <Thumb theme={t} profile={base} plan={plan} />
-                        {locked && (
-                          <span
-                            className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white"
-                            title={`Plan ${PLAN_LABEL[t.plan]} requis`}
-                          >
-                            <Lock size={13} />
-                          </span>
-                        )}
-                        {t.id === appliedId && (
-                          <span
-                            className={`absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded-full text-white ${grad}`}
-                            title="Thème actuel"
-                          >
-                            <Check size={14} />
-                          </span>
-                        )}
-                      </div>
-                      <div className="mt-2 flex items-center justify-between gap-2 px-1">
-                        <span className="text-sm font-semibold">{t.name}</span>
-                        {locked && (
-                          <span className="text-[10px] font-semibold uppercase text-fractal-terra">{PLAN_LABEL[t.plan]}</span>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })}
-
-        {/* Couleurs personnalisées */}
-        <div className="mt-12 rounded-3xl border border-line bg-surface p-4 shadow-soft sm:p-6">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h2 className="font-display text-xl font-bold">Couleurs personnalisées</h2>
-              <p className="mt-1 text-sm text-muted">Adapte le thème à ta marque. Les changements s&apos;affichent en direct.</p>
-            </div>
-            {customAllowed && (
-              <button onClick={() => setCustom({})} className="flex items-center gap-1.5 text-xs font-medium text-muted hover:text-ink">
-                <RotateCcw size={13} /> Réinitialiser
-              </button>
-            )}
-          </div>
-          {customAllowed ? (
-            <div className="mt-5 grid gap-4 sm:grid-cols-2">
-              {COLOR_FIELDS.map(([key, label]) => {
-                const themeValue = selected.tokens[key];
-                const fallback = /^#[0-9a-fA-F]{6}$/.test(themeValue) ? themeValue : "#ffffff";
-                return (
-                  <label key={key} className="flex items-center justify-between gap-3 rounded-2xl bg-soft px-4 py-3 text-sm">
-                    <span>{label}</span>
-                    <input
-                      type="color"
-                      value={custom[key] && /^#[0-9a-fA-F]{6}$/.test(custom[key]!) ? custom[key] : fallback}
-                      onChange={(e) => setToken(key, e.target.value)}
-                      className="h-8 w-12 cursor-pointer rounded-lg border border-line bg-transparent"
-                      aria-label={label}
-                    />
-                  </label>
-                );
-              })}
-              <label className="flex items-center justify-between gap-3 rounded-2xl bg-soft px-4 py-3 text-sm sm:col-span-2">
-                <span>Arrondi des boutons</span>
-                <select
-                  value={custom.radius ?? ""}
-                  onChange={(e) => setToken("radius", e.target.value)}
-                  className="rounded-lg border border-line bg-surface px-3 py-1.5 text-sm"
-                >
-                  {RADIUS_OPTIONS.map(([v, l]) => (
-                    <option key={v} value={v}>{l}</option>
-                  ))}
-                </select>
-              </label>
-            </div>
-          ) : (
-            <div className="mt-5 flex flex-col items-start gap-3 rounded-2xl bg-soft p-5 text-sm">
-              <span className="flex items-center gap-2 font-medium"><Lock size={15} /> Réservé aux plans Pro et Business</span>
-              <Link href="/#tarifs" className={`rounded-full px-5 py-2 text-sm font-semibold text-white ${grad}`}>Débloquer avec Pro</Link>
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* ===== APERÇU sticky (desktop uniquement) ===== */}
-      <aside className="mt-10 lg:mt-0 hidden lg:block">
+    <div className="mx-auto grid max-w-6xl gap-10 px-6 py-10 lg:grid-cols-[1fr_360px]">
+      <aside className="order-first lg:order-last">
         <div className="lg:sticky lg:top-6">
-          <div className="nd-phone mx-auto">
-            <div className="nd-screen">
-              <ProfileRenderer
-                profile={{ ...base, themeId: selected.id }}
-                plan={plan}
-                themeOverride={selected}
-                customOverride={customAllowed ? custom : undefined}
-                preview
-              />
-            </div>
-          </div>
+          <div className="nd-phone mx-auto"><div className="nd-screen"><ProfileRenderer profile={{ ...base, themeId: selected.id }} plan={plan} themeOverride={selected} customOverride={customAllowed ? custom : undefined} preview /></div></div>
           <div className="mx-auto mt-5 max-w-[340px] text-center">
             <p className="font-display text-lg font-bold">{selected.name}</p>
             <p className="text-xs text-muted">Thème {PLAN_LABEL[selected.plan]}</p>
-            {themeAllowed ? (
-              <button
-                onClick={apply}
-                disabled={!dirty || status.kind === "saving"}
-                className="mt-4 w-full rounded-full bg-ink px-5 py-3 text-sm font-medium text-bg transition disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                {status.kind === "saving" ? "Enregistrement…" : dirty ? "Appliquer ce thème" : "Thème en place"}
-              </button>
-            ) : (
-              <Link href="/#tarifs" className={`mt-4 flex w-full items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold text-white ${grad}`}>
-                <Crown size={16} /> Passer au plan {PLAN_LABEL[selected.plan]}
-              </Link>
-            )}
-            <p role="status" className={`mt-3 min-h-5 text-xs ${status.kind === "error" ? "text-fractal-terra" : "text-muted"}`}>
-              {status.msg}
-            </p>
+            {themeAllowed ? (<button onClick={apply} disabled={!dirty || status.kind === "saving"} className="mt-4 w-full rounded-full bg-ink px-5 py-3 text-sm font-medium text-bg transition disabled:cursor-not-allowed disabled:opacity-40">{status.kind === "saving" ? "Enregistrement…" : dirty ? "Appliquer ce thème" : "Thème en place"}</button>) : (<Link href="/#tarifs" className={`mt-4 flex w-full items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold text-white ${grad}`}><Crown size={16} /> Passer au plan {PLAN_LABEL[selected.plan]}</Link>)}
+            <p role="status" className={`mt-3 min-h-5 text-xs ${status.kind === "error" ? "text-fractal-terra" : "text-muted"}`}>{status.msg}</p>
           </div>
         </div>
       </aside>
-
-      {/* ===== POPUP mobile : prévisualisation + Annuler / Valider ===== */}
-      {isMobile && popupTheme && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-ink/60 p-4 backdrop-blur-sm"
-          onClick={() => setPopupTheme(null)}
-        >
-          <div
-            className="w-full max-w-sm rounded-3xl bg-surface p-4 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="mb-3 flex items-center justify-between">
-              <p className="font-display text-lg font-bold">{popupTheme.name}</p>
-              <button onClick={() => setPopupTheme(null)} aria-label="Fermer" className="p-1 rounded-full hover:bg-soft text-muted">
-                <X size={18} />
-              </button>
-            </div>
-            <div className="nd-phone nd-phone-sm mx-auto">
-              <div className="nd-screen">
-                <ProfileRenderer
-                  profile={{ ...base, themeId: popupTheme.id }}
-                  plan={plan}
-                  themeOverride={popupTheme}
-                  customOverride={customAllowed ? custom : undefined}
-                  preview
-                />
-              </div>
-            </div>
-            <div className="mt-4 flex gap-3">
-              <button
-                onClick={() => setPopupTheme(null)}
-                className="flex-1 rounded-full border border-line px-4 py-3 text-sm font-medium text-muted hover:bg-soft"
-              >
-                Annuler
-              </button>
-              {popupLocked ? (
-                <Link
-                  href="/#tarifs"
-                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-full px-4 py-3 text-sm font-semibold text-white ${grad}`}
-                >
-                  <Crown size={15} /> Plan {PLAN_LABEL[popupTheme.plan]}
-                </Link>
-              ) : (
-                <button
-                  onClick={confirmPopup}
-                  disabled={status.kind === "saving"}
-                  className="flex-1 rounded-full bg-ink px-4 py-3 text-sm font-medium text-bg disabled:opacity-40"
-                >
-                  {status.kind === "saving" ? "Enregistrement…" : "Valider"}
-                </button>
-              )}
-            </div>
-            {status.msg && (
-              <p role="status" className={`mt-3 text-center text-xs ${status.kind === "error" ? "text-fractal-terra" : "text-muted"}`}>
-                {status.msg}
-              </p>
-            )}
-          </div>
+      <section>
+        <h1 className="font-display text-3xl font-bold">Thèmes</h1>
+        <p className="mt-1 text-sm text-muted">Clique sur un thème pour le voir. Les thèmes verrouillés restent visibles.</p>
+        {paused && (<div role="note" className="mt-5 rounded-2xl border border-line bg-soft p-4 text-sm">Ton thème <strong>{paused.name}</strong> est en pause.</div>)}
+        {GROUPS.map((g) => {
+          const themes = ALL_THEMES.filter((t) => t.plan === g);
+          if (!themes.length) return null;
+          return (<div key={g} className="mt-8"><h2 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-muted">{PLAN_LABEL[g]} <span className="font-normal normal-case">({themes.length})</span></h2><div className="grid grid-cols-2 gap-4 sm:grid-cols-3">{themes.map((t) => { const locked = !planAtLeast(plan, t.plan); const isSelected = t.id === selectedId; return (<button key={t.id} onClick={() => { setSelectedId(t.id); setStatus({ kind: "idle" }); }} aria-pressed={isSelected} className={`group rounded-2xl border-2 p-2 text-left transition ${isSelected ? "border-fractal-ocre bg-surface shadow-soft" : "border-transparent hover:border-line"}`}><div className="relative mx-auto w-fit"><Thumb theme={t} profile={base} plan={plan} />{locked && (<span className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white"><Lock size={13} /></span>)}{t.id === appliedId && (<span className={`absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded-full text-white ${grad}`}><Check size={14} /></span>)}</div><div className="mt-2 flex items-center justify-between gap-2 px-1"><span className="text-sm font-semibold">{t.name}</span>{locked && <span className="text-[10px] font-semibold uppercase text-fractal-terra">{PLAN_LABEL[t.plan]}</span>}</div></button>); })}</div></div>);
+        })}
+        <div className="mt-12 rounded-3xl border border-line bg-surface p-6 shadow-soft">
+          <div className="flex items-start justify-between gap-4"><div><h2 className="font-display text-xl font-bold">Couleurs personnalisées</h2><p className="mt-1 text-sm text-muted">Adapte le thème à ta marque.</p></div>{customAllowed && (<button onClick={() => setCustom({})} className="flex items-center gap-1.5 text-xs font-medium text-muted hover:text-ink"><RotateCcw size={13} /> Réinitialiser</button>)}</div>
+          {customAllowed ? (<div className="mt-5 grid gap-4 sm:grid-cols-2">{COLOR_FIELDS.map(([key, label]) => { const themeValue = selected.tokens[key]; const fallback = /^#[0-9a-fA-F]{6}$/.test(themeValue) ? themeValue : "#ffffff"; return (<label key={key} className="flex items-center justify-between gap-3 rounded-2xl bg-soft px-4 py-3 text-sm"><span>{label}</span><input type="color" value={custom[key] && /^#[0-9a-fA-F]{6}$/.test(custom[key]!) ? custom[key] : fallback} onChange={(e) => setToken(key, e.target.value)} className="h-8 w-12 cursor-pointer rounded-lg border border-line bg-transparent" aria-label={label} /></label>); })}<label className="flex items-center justify-between gap-3 rounded-2xl bg-soft px-4 py-3 text-sm sm:col-span-2"><span>Arrondi des boutons</span><select value={custom.radius ?? ""} onChange={(e) => setToken("radius", e.target.value)} className="rounded-lg border border-line bg-surface px-3 py-1.5 text-sm">{RADIUS_OPTIONS.map(([v, l]) => (<option key={v} value={v}>{l}</option>))}</select></label></div>) : (<div className="mt-5 flex flex-col items-start gap-3 rounded-2xl bg-soft p-5 text-sm"><span className="flex items-center gap-2 font-medium"><Lock size={15} /> Réservé aux plans Pro et Business</span><Link href="/#tarifs" className={`rounded-full px-5 py-2 text-sm font-semibold text-white ${grad}`}>Débloquer avec Pro</Link></div>)}
         </div>
-      )}
+      </section>
     </div>
   );
 }

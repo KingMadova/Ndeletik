@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Reorder } from "framer-motion";
-import { LogOut, Plus, Link2, Eye, User, Palette, BarChart3, SwatchBook } from "lucide-react";
+import { Reorder, motion, AnimatePresence } from "framer-motion";
+import { LogOut, Plus, Link2, Eye, User, Palette, BarChart3, SwatchBook, TrendingUp, Globe, Clock } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import type { LinkItem as LinkItemType, Profile } from "@/lib/types";
 import { LinkItem } from "@/components/dashboard/LinkItem";
 import { ProfileCard, Banner } from "@/components/dashboard/ProfileCard";
 import { AddBlockModal } from "@/components/dashboard/AddBlockModal";
+import { LinkTemplates } from "@/components/dashboard/LinkTemplates";
 import { useToast } from "@/components/dashboard/Toast";
 import { normalizeUrl } from "@/components/dashboard/blockMeta";
 import { UploadButton } from "@/components/dashboard/UploadButton";
@@ -17,8 +18,7 @@ import { OfflineBanner } from "@/components/dashboard/OfflineBanner";
 import { COUNTRY_GROUPS } from "@/lib/countries";
 import { isReserved } from "@/lib/reserved";
 
-const btnPrimary =
-  "bg-fractal-ocre hover:bg-fractal-terra text-white font-semibold transition-colors shadow-soft";
+const btnPrimary = "bg-fractal-ocre hover:bg-fractal-terra text-white font-semibold transition-colors shadow-soft";
 
 type Tab = "lynk" | "appearance" | "statistic";
 const TABS: { id: Tab; label: string; icon: any }[] = [
@@ -27,65 +27,93 @@ const TABS: { id: Tab; label: string; icon: any }[] = [
   { id: "statistic", label: "Statistiques", icon: BarChart3 },
 ];
 
+type TrafficSource = { name: string; count: number; percentage: number };
+
 export default function Dashboard() {
   const router = useRouter();
   const { toast, node: toastNode } = useToast();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [links, setLinks] = useState<LinkItemType[]>([]);
+  const [plan, setPlan] = useState<string>("free");
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>("lynk");
   const [modal, setModal] = useState(false);
+  const [trafficSources, setTrafficSources] = useState<TrafficSource[]>([]);
 
   const committed = useRef<LinkItemType[]>([]);
   const latest = useRef<LinkItemType[]>([]);
   latest.current = links;
 
-  const publicUrl =
-    typeof window !== "undefined" && profile ? `${window.location.origin}/@${profile.slug}` : "";
+  const publicUrl = typeof window !== "undefined" && profile ? `${window.location.origin}/@${profile.slug}` : "";
 
   useEffect(() => {
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return router.replace("/auth");
-      const { data: p } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("user_id", session.user.id)
-        .single();
+      
+      const { data: p } = await supabase.from("profiles").select("*").eq("user_id", session.user.id).single();
       if (!p) return router.replace("/auth");
+      
       const prof = p as Profile;
-      const { data: l } = await supabase
-        .from("links")
-        .select("*")
-        .eq("profile_id", prof.id)
-        .order("position", { ascending: true });
+      const [{ data: l }, { data: myPlan }, { data: clicks }] = await Promise.all([
+        supabase.from("links").select("*").eq("profile_id", prof.id).order("position", { ascending: true }),
+        supabase.rpc("my_plan"),
+        supabase.from("link_clicks").select("referrer").eq("profile_id", prof.id),
+      ]);
+      
       setProfile(prof);
       setLinks((l ?? []) as LinkItemType[]);
       committed.current = (l ?? []) as LinkItemType[];
+      setPlan(["free", "pro", "business"].includes(myPlan) ? myPlan : "free");
+      
+      // Calcul des sources de trafic
+      const referrers = (clicks ?? []).map((c: any) => c.referrer).filter(Boolean);
+      const sourceMap = new Map<string, number>();
+      referrers.forEach((r: string) => {
+        const source = extractSource(r);
+        sourceMap.set(source, (sourceMap.get(source) ?? 0) + 1);
+      });
+      
+      const total = referrers.length || 1;
+      const sources: TrafficSource[] = Array.from(sourceMap.entries())
+        .map(([name, count]) => ({ name, count, percentage: (count / total) * 100 }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5);
+      
+      setTrafficSources(sources);
       setLoading(false);
     })();
   }, [router]);
 
-  const rollback = useCallback(
-    (msg: string) => {
-      setLinks(committed.current);
-      toast(msg, false);
-    },
-    [toast]
-  );
+  const extractSource = (url: string): string => {
+    try {
+      const domain = new URL(url).hostname.replace(/^www\./, "");
+      if (domain.includes("instagram")) return "Instagram";
+      if (domain.includes("tiktok")) return "TikTok";
+      if (domain.includes("facebook") || domain.includes("fb")) return "Facebook";
+      if (domain.includes("twitter") || domain.includes("x.com")) return "X (Twitter)";
+      if (domain.includes("youtube")) return "YouTube";
+      if (domain.includes("linkedin")) return "LinkedIn";
+      if (domain.includes("google")) return "Google";
+      return domain;
+    } catch {
+      return "Direct";
+    }
+  };
 
-  const addLink = async (title: string, url: string) => {
+  const rollback = useCallback((msg: string) => {
+    setLinks(committed.current);
+    toast(msg, false);
+  }, [toast]);
+
+  const addLink = async (title: string, url: string, icon?: string) => {
     if (!profile) return false;
     const { data, error } = await supabase
       .from("links")
-      .insert({
-        profile_id: profile.id,
-        title,
-        url: normalizeUrl(url),
-        position: latest.current.length,
-      })
+      .insert({ profile_id: profile.id, title, url: normalizeUrl(url), icon: icon || "link", position: latest.current.length })
       .select()
       .single();
+    
     if (error) {
       if (error.message.includes("link_limit_reached")) {
         toast("Limite de 5 liens actifs atteinte (plan Gratuit) — passe au Pro pour plus", false);
@@ -94,6 +122,7 @@ export default function Dashboard() {
       }
       return false;
     }
+    
     const next = [...latest.current, data as LinkItemType];
     setLinks(next);
     committed.current = next;
@@ -126,10 +155,7 @@ export default function Dashboard() {
     const ids = latest.current.map((l) => l.id);
     if (ids.join() === committed.current.map((l) => l.id).join()) return;
     try {
-      const { error } = await supabase.rpc("update_links_order", {
-        p_profile: profile.id,
-        p_ids: ids,
-      });
+      const { error } = await supabase.rpc("update_links_order", { p_profile: profile.id, p_ids: ids });
       if (error) throw new Error(error.message);
       committed.current = [...latest.current];
     } catch (e: any) {
@@ -198,58 +224,42 @@ export default function Dashboard() {
       <div className="max-w-6xl mx-auto sm:p-6">
         <div className="bg-surface sm:rounded-3xl border border-line shadow-soft overflow-hidden pb-6">
           <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-line">
-            <h1 className="text-xl font-display font-extrabold">Mon lien bio</h1>
+            <motion.h1 initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="text-xl font-display font-extrabold">
+              Mon lien bio
+            </motion.h1>
             <div className="flex items-center gap-2">
-              <a
-                href={`/@@${profile.slug}`.replace("@@", "@")}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 rounded-full border border-line text-sm text-muted hover:border-fractal-ocre hover:text-fractal-terra transition-colors"
-              >
+              <a href={`/@${profile.slug}`} target="_blank" rel="noopener noreferrer" className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 rounded-full border border-line text-sm text-muted hover:border-fractal-ocre hover:text-fractal-terra transition-colors">
                 <Eye size={14} /> Voir ma page
               </a>
-              <a
-                href="/dashboard/themes"
-                className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 rounded-full border border-line text-sm text-muted hover:border-fractal-ocre hover:text-fractal-terra transition-colors"
-              >
+              <a href="/dashboard/themes" className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 rounded-full border border-line text-sm text-muted hover:border-fractal-ocre hover:text-fractal-terra transition-colors">
                 <SwatchBook size={14} /> Thèmes
               </a>
-              <button
-                onClick={() => setTab("appearance")}
-                aria-label="Éditer mon profil"
-                title="Éditer mon profil"
-                className="p-2 rounded-lg text-muted hover:bg-soft hover:text-fractal-ocre transition-colors"
-              >
+              <button onClick={() => setTab("appearance")} aria-label="Éditer mon profil" className="p-2 rounded-lg text-muted hover:bg-soft hover:text-fractal-ocre transition-colors">
                 <User size={18} />
               </button>
-              <button
-                onClick={logout}
-                aria-label="Déconnexion"
-                className="p-2 rounded-lg text-muted hover:bg-soft hover:text-fractal-terra transition-colors"
-              >
+              <button onClick={logout} aria-label="Déconnexion" className="p-2 rounded-lg text-muted hover:bg-soft hover:text-fractal-terra transition-colors">
                 <LogOut size={18} />
               </button>
             </div>
           </div>
 
           <Banner url={profile.cover_url} className="h-32 sm:h-40" />
-
           <ProfileCard profile={profile} publicUrl={publicUrl} onCopy={copyUrl} onShare={shareUrl} />
 
-          <div className="grid grid-cols-3 gap-3 px-4 sm:px-6 mt-6">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="grid grid-cols-3 gap-3 px-4 sm:px-6 mt-6">
             <div className="bg-soft rounded-xl p-4 border border-line">
-              <div className="text-xs text-muted mb-1">Liens actifs</div>
+              <div className="text-xs text-muted mb-1 flex items-center gap-1"><Link2 size={12} /> Liens actifs</div>
               <div className="text-2xl font-display font-bold text-fractal-ocre">{activeLinks}</div>
             </div>
             <div className="bg-soft rounded-xl p-4 border border-line">
-              <div className="text-xs text-muted mb-1">Clics totaux</div>
+              <div className="text-xs text-muted mb-1 flex items-center gap-1"><TrendingUp size={12} /> Clics totaux</div>
               <div className="text-2xl font-display font-bold text-fractal-terra">{totalClicks}</div>
             </div>
             <div className="bg-soft rounded-xl p-4 border border-line">
-              <div className="text-xs text-muted mb-1">Vues de page</div>
+              <div className="text-xs text-muted mb-1 flex items-center gap-1"><Eye size={12} /> Vues de page</div>
               <div className="text-2xl font-display font-bold text-fractal-or">{profile.views ?? 0}</div>
             </div>
-          </div>
+          </motion.div>
 
           <div className="grid lg:grid-cols-[1fr_360px] gap-6 px-4 sm:px-6 mt-6">
             <section className="min-w-0">
@@ -261,9 +271,7 @@ export default function Dashboard() {
                     aria-selected={tab === t.id}
                     onClick={() => setTab(t.id)}
                     className={`pb-2.5 text-sm -mb-px border-b-2 transition-colors flex items-center gap-1.5 ${
-                      tab === t.id
-                        ? "border-fractal-ocre text-fractal-terra font-semibold"
-                        : "border-transparent text-muted hover:text-ink"
+                      tab === t.id ? "border-fractal-ocre text-fractal-terra font-semibold" : "border-transparent text-muted hover:text-ink"
                     }`}
                   >
                     <t.icon size={14} />
@@ -272,92 +280,110 @@ export default function Dashboard() {
                 ))}
               </div>
 
-              {tab === "lynk" && (
-                <>
-                  <p className="text-sm font-semibold mb-3">Liste des blocs ({links.length})</p>
+              <AnimatePresence mode="wait">
+                {tab === "lynk" && (
+                  <motion.div key="lynk" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}>
+                    <LinkTemplates onAdd={addLink} />
+                    
+                    <p className="text-sm font-semibold mb-3">Liste des blocs ({links.length})</p>
+                    <button onClick={() => setModal(true)} className={`w-full flex items-center justify-center gap-2 rounded-2xl py-4 text-sm border border-fractal-terra/20 mb-4 ${btnPrimary}`}>
+                      <Plus size={18} /> Ajouter un nouveau lien
+                    </button>
 
-                  <button
-                    onClick={() => setModal(true)}
-                    className={`w-full flex items-center justify-center gap-2 rounded-2xl py-4 text-sm border border-fractal-terra/20 mb-4 ${btnPrimary}`}
-                  >
-                    <Plus size={18} /> Ajouter un nouveau lien
-                  </button>
+                    {links.length === 0 ? (
+                      <div className="text-center py-14 rounded-2xl border-2 border-dashed border-line">
+                        <Link2 size={48} className="mx-auto text-line mb-3" />
+                        <p className="text-sm font-semibold mb-1">Aucun lien pour le moment</p>
+                        <p className="text-xs text-muted">Utilise les templates ci-dessus ou clique sur le bouton orange.</p>
+                      </div>
+                    ) : (
+                      <Reorder.Group axis="y" values={links} onReorder={setLinks} className="space-y-2.5 p-0">
+                        {links.map((l) => (
+                          <LinkItem key={l.id} link={l} onUpdate={updateLink} onDelete={deleteLink} onDragEnd={persistOrder} />
+                        ))}
+                      </Reorder.Group>
+                    )}
 
-                  {links.length === 0 ? (
-                    <div className="text-center py-14 rounded-2xl border-2 border-dashed border-line">
-                      <Link2 size={48} className="mx-auto text-line mb-3" />
-                      <p className="text-sm font-semibold mb-1">Aucun lien pour le moment</p>
-                      <p className="text-xs text-muted">Clique sur le bouton orange ci-dessus.</p>
+                    <div className="mt-6">
+                      <ShortLinkManager userId={profile.user_id} plan={plan} />
                     </div>
-                  ) : (
-                    <Reorder.Group axis="y" values={links} onReorder={setLinks} className="space-y-2.5 p-0">
-                      {links.map((l) => (
-                        <LinkItem
-                          key={l.id}
-                          link={l}
-                          onUpdate={updateLink}
-                          onDelete={deleteLink}
-                          onDragEnd={persistOrder}
-                        />
-                      ))}
-                    </Reorder.Group>
-                  )}
+                  </motion.div>
+                )}
 
-                  <div className="mt-6">
-                    <ShortLinkManager userId={profile.user_id} plan="free" />
-                  </div>
-                </>
-              )}
+                {tab === "appearance" && (
+                  <motion.div key="appearance" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}>
+                    <AppearanceForm profile={profile} onSave={saveProfile} />
+                  </motion.div>
+                )}
 
-              {tab === "appearance" && <AppearanceForm profile={profile} onSave={saveProfile} />}
+                {tab === "statistic" && (
+                  <motion.div key="statistic" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}>
+                    <div className="bg-soft rounded-2xl p-5 border border-line mb-4">
+                      <div className="text-xs text-muted mb-1">Clics totaux</div>
+                      <div className="text-3xl font-display font-bold">{totalClicks}</div>
+                    </div>
 
-              {tab === "statistic" && (
-                <div>
-                  <div className="bg-soft rounded-2xl p-5 border border-line mb-4">
-                    <div className="text-xs text-muted mb-1">Clics totaux</div>
-                    <div className="text-3xl font-display font-bold">{totalClicks}</div>
-                  </div>
-                  <p className="text-sm font-semibold mb-3">Détails par lien</p>
-                  <ul className="space-y-3">
-                    {[...links]
-                      .sort((a, b) => b.clicks - a.clicks)
-                      .map((l) => (
-                        <li key={l.id}>
-                          <div className="flex justify-between text-sm mb-1">
-                            <span className="truncate pr-3 font-medium">{l.title}</span>
-                            <span className="text-muted">{l.clicks} clics</span>
-                          </div>
-                          <div className="h-2 rounded-full bg-line/50">
-                            <div
-                              className="h-2 rounded-full bg-fractal-ocre transition-all duration-500"
-                              style={{ width: `${(l.clicks / maxClicks) * 100}%` }}
-                            />
-                          </div>
-                        </li>
-                      ))}
-                  </ul>
-                </div>
-              )}
+                    {trafficSources.length > 0 && (
+                      <div className="bg-soft rounded-2xl p-5 border border-line mb-4">
+                        <div className="flex items-center gap-2 mb-4">
+                          <Globe size={16} className="text-fractal-ocre" />
+                          <h3 className="text-sm font-semibold">Sources de trafic</h3>
+                        </div>
+                        <ul className="space-y-3">
+                          {trafficSources.map((s) => (
+                            <li key={s.name}>
+                              <div className="flex justify-between text-sm mb-1">
+                                <span className="font-medium">{s.name}</span>
+                                <span className="text-muted">{s.count} ({s.percentage.toFixed(1)}%)</span>
+                              </div>
+                              <div className="h-2 rounded-full bg-line/50">
+                                <motion.div
+                                  initial={{ width: 0 }}
+                                  animate={{ width: `${s.percentage}%` }}
+                                  transition={{ duration: 0.5, ease: "easeOut" }}
+                                  className="h-2 rounded-full bg-gradient-to-r from-fractal-ocre to-fractal-terra"
+                                />
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    <p className="text-sm font-semibold mb-3">Détails par lien</p>
+                    <ul className="space-y-3">
+                      {[...links]
+                        .sort((a, b) => b.clicks - a.clicks)
+                        .map((l) => (
+                          <li key={l.id}>
+                            <div className="flex justify-between text-sm mb-1">
+                              <span className="truncate pr-3 font-medium">{l.title}</span>
+                              <span className="text-muted">{l.clicks} clics</span>
+                            </div>
+                            <div className="h-2 rounded-full bg-line/50">
+                              <motion.div
+                                initial={{ width: 0 }}
+                                animate={{ width: `${(l.clicks / maxClicks) * 100}%` }}
+                                transition={{ duration: 0.5, ease: "easeOut" }}
+                                className="h-2 rounded-full bg-fractal-ocre"
+                              />
+                            </div>
+                          </li>
+                        ))}
+                    </ul>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </section>
 
             <aside>
               <div className="rounded-3xl border border-line bg-surface shadow-soft lg:sticky lg:top-6 p-5 text-center">
                 <p className="text-sm font-semibold mb-2">Aperçu & thèmes</p>
-                <p className="text-xs text-muted mb-4">
-                  Visualise ta page publique et choisis parmi 18 thèmes (4 gratuits, 7 Pro, 7 Business).
-                </p>
-                <a
-                  href="/dashboard/themes"
-                  className={`inline-flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm ${btnPrimary}`}
-                >
-                  <SwatchBook size={16} /> Ouvrir l&apos;éditeur de thèmes
+                <p className="text-xs text-muted mb-4">Visualise ta page publique et choisis parmi 18 thèmes.</p>
+                <a href="/dashboard/themes" className={`inline-flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm ${btnPrimary}`}>
+                  <SwatchBook size={16} /> Ouvrir l'éditeur de thèmes
                 </a>
-                <a
-                  href={`/@@${profile.slug}`.replace("@@", "@")}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-line px-5 py-3 text-sm text-muted hover:border-fractal-ocre hover:text-fractal-terra transition-colors"
-                >
+                <a href={`/@${profile.slug}`} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-line px-5 py-3 text-sm text-muted hover:border-fractal-ocre hover:text-fractal-terra transition-colors">
                   <Eye size={16} /> Voir ma page publique
                 </a>
               </div>
@@ -372,13 +398,7 @@ export default function Dashboard() {
   );
 }
 
-function AppearanceForm({
-  profile,
-  onSave,
-}: {
-  profile: Profile;
-  onSave: (p: Partial<Profile>) => void;
-}) {
+function AppearanceForm({ profile, onSave }: { profile: Profile; onSave: (p: Partial<Profile>) => void }) {
   const [f, setF] = useState({
     slug: profile.slug,
     display_name: profile.display_name,
@@ -389,13 +409,10 @@ function AppearanceForm({
     country: profile.country ?? "",
   });
 
-  const set =
-    (k: keyof typeof f) =>
-    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-      setF((p) => ({ ...p, [k]: e.target.value }));
+  const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+    setF((p) => ({ ...p, [k]: e.target.value }));
 
-  const cls =
-    "w-full rounded-xl border border-line bg-bg px-4 py-3 text-sm text-ink focus:outline-none focus:border-fractal-ocre transition-colors";
+  const cls = "w-full rounded-xl border border-line bg-bg px-4 py-3 text-sm text-ink focus:outline-none focus:border-fractal-ocre transition-colors";
 
   return (
     <form
@@ -417,12 +434,7 @@ function AppearanceForm({
         <h3 className="text-sm font-semibold mb-3">Photo de profil</h3>
         <div className="flex items-center gap-4">
           {f.avatar_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={f.avatar_url}
-              alt="Aperçu avatar"
-              className="h-20 w-20 rounded-full object-cover ring-4 ring-surface shadow-soft"
-            />
+            <img src={f.avatar_url} alt="Aperçu avatar" className="h-20 w-20 rounded-full object-cover ring-4 ring-surface shadow-soft" />
           ) : (
             <div className="h-20 w-20 rounded-full bg-fractal-ocre text-white flex items-center justify-center font-bold text-xl">
               {f.display_name.slice(0, 2).toUpperCase()}
@@ -430,13 +442,7 @@ function AppearanceForm({
           )}
           <div className="flex-1">
             <p className="text-xs text-muted mb-2">Format carré, 3 Mo maximum</p>
-            <UploadButton
-              kind="avatar"
-              onDone={(url) => {
-                setF((p) => ({ ...p, avatar_url: url }));
-                onSave({ avatar_url: url });
-              }}
-            />
+            <UploadButton kind="avatar" onDone={(url) => { setF((p) => ({ ...p, avatar_url: url })); onSave({ avatar_url: url }); }} />
           </div>
         </div>
       </div>
@@ -451,13 +457,7 @@ function AppearanceForm({
           )}
         </div>
         <p className="text-xs text-muted mb-2">Format rectangulaire, 3 Mo maximum</p>
-        <UploadButton
-          kind="banner"
-          onDone={(url) => {
-            setF((p) => ({ ...p, cover_url: url }));
-            onSave({ cover_url: url });
-          }}
-        />
+        <UploadButton kind="banner" onDone={(url) => { setF((p) => ({ ...p, cover_url: url })); onSave({ cover_url: url }); }} />
       </div>
 
       <div className="bg-soft rounded-2xl p-5 border border-line space-y-4">
@@ -480,18 +480,12 @@ function AppearanceForm({
         </label>
         <label className="block">
           <span className="text-xs text-muted mb-1.5 block">Pays</span>
-          <select
-            value={f.country}
-            onChange={(e) => setF((p) => ({ ...p, country: e.target.value }))}
-            className={cls}
-          >
+          <select value={f.country} onChange={(e) => setF((p) => ({ ...p, country: e.target.value }))} className={cls}>
             <option value="">— Choisir mon pays —</option>
             {COUNTRY_GROUPS.map((g) => (
               <optgroup key={g.label} label={g.label}>
                 {g.countries.map((c) => (
-                  <option key={c.name} value={c.name}>
-                    {c.name}
-                  </option>
+                  <option key={c.name} value={c.name}>{c.name}</option>
                 ))}
               </optgroup>
             ))}
@@ -500,10 +494,7 @@ function AppearanceForm({
         </label>
       </div>
 
-      <button
-        type="submit"
-        className={`w-full rounded-xl px-6 py-3.5 text-sm border border-fractal-terra/20 ${btnPrimary}`}
-      >
+      <button type="submit" className={`w-full rounded-xl px-6 py-3.5 text-sm border border-fractal-terra/20 ${btnPrimary}`}>
         Enregistrer les modifications
       </button>
     </form>

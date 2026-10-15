@@ -1,6 +1,5 @@
 @import "tailwindcss";
 
-/* ===== Charte YEKOLA BUSINESS — tokens Tailwind v4 (@theme) ===== */
 @theme {
   --color-bg: #FFF9F3;
   --color-surface: #FFFFFF;
@@ -14,18 +13,12 @@
   --color-fractal-terra: #C1440E;
   --color-fractal-creme: #FFF9F3;
 
-  /* Ancienne palette (sécurité, au cas où un fichier l'utilise encore) */
-  --color-savane-dark: #0F1115;
-  --color-savane-card: #1A1D24;
-  --color-savane-border: #2D323E;
-
   --font-display: var(--font-montserrat), system-ui, sans-serif;
   --font-sans: var(--font-poppins), system-ui, sans-serif;
 
   --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.04), 0 8px 24px -8px rgb(193 68 14 / 0.12);
 }
 
-/* ===== Base — mode clair YEKOLA, sans exception ===== */
 html {
   scroll-behavior: smooth;
   scroll-padding-top: 6rem;

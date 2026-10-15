@@ -1,30 +1,30 @@
-import type { Profile } from "./themes/types";
+import { sanitizeCustomTokens } from "./entitlements";
+import type { Plan } from "./plans";
+import { safeImageUrl, safeUrl } from "./safe-url";
+import type { Block, LinkItem, Profile, Social, SocialType } from "./themes/types";
 
-export const toProfile = (data: any): { profile: Profile; plan: "free" | "pro" | "business" } => {
+const SOCIALS: SocialType[] = ["instagram", "tiktok", "youtube", "facebook", "whatsapp", "x", "linkedin", "telegram", "pinterest", "email"];
+const str = (v: unknown, max = 500) => (typeof v === "string" ? v.slice(0, max) : "");
+const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
+
+function toBlocks(raw: unknown): Block[] {
+  const out: Block[] = [];
+  for (const b of arr(raw) as Record<string, unknown>[]) {
+    if (!b || typeof b !== "object") continue;
+    if (b.type === "about") out.push({ type: "about", title: str(b.title, 80), text: str(b.text, 1200) });
+    else if (b.type === "newsletter") out.push({ type: "newsletter", title: str(b.title, 80), subtitle: str(b.subtitle, 160) || undefined });
+    else if (b.type === "stats") out.push({ type: "stats", items: (arr(b.items) as Record<string, unknown>[]).slice(0, 4).map((i) => ({ value: str(i?.value, 12), label: str(i?.label, 24) })) });
+    else if (b.type === "faq") out.push({ type: "faq", items: (arr(b.items) as Record<string, unknown>[]).slice(0, 10).map((i) => ({ q: str(i?.q, 140), a: str(i?.a, 600) })) });
+  }
+  return out;
+}
+
+export function toProfile(payload: any): { profile: Profile; plan: Plan } {
+  const p = payload.profile;
+  const socials: Social[] = (arr(p.socials) as Record<string, unknown>[]).filter((s) => SOCIALS.includes(s?.type as SocialType) && safeUrl(str(s?.url, 2048))).map((s) => ({ type: s.type as SocialType, url: str(s.url, 2048) }));
+  const links: LinkItem[] = (arr(payload.links) as Record<string, any>[]).map((l) => ({ id: l.id, title: str(l.title, 80), subtitle: str(l.subtitle, 160) || undefined, url: str(l.url, 2048), icon: l.icon ?? undefined, image: safeImageUrl(l.image_url), cta: str(l.cta, 24) || undefined, featured: !!l.featured, enabled: l.enabled !== false }));
   return {
-    profile: {
-      slug: data.profile.slug,
-      displayName: data.profile.display_name,
-      avatarUrl: data.profile.avatar_url,
-      coverUrl: data.profile.cover_url,
-      bio: data.profile.bio,
-      headline: data.profile.headline,
-      verified: data.profile.verified,
-      showBadge: data.profile.show_badge,
-      themeId: data.profile.theme_id || "minimal",
-      customTokens: data.profile.custom_tokens || {},
-      socials: data.profile.socials || [],
-      links: data.links.map((l: any) => ({
-        id: l.id,
-        title: l.title,
-        url: l.url,
-        icon: l.icon,
-        enabled: l.enabled,
-        position: l.position,
-        clicks: l.clicks || 0,
-      })),
-      blocks: data.profile.blocks || [],
-    },
-    plan: data.plan || "free",
+    plan: (["free", "pro", "business"].includes(payload.plan) ? payload.plan : "free") as Plan,
+    profile: { slug: p.slug, displayName: str(p.display_name, 80), headline: str(p.headline, 120) || undefined, bio: str(p.bio, 400) || undefined, avatarUrl: safeImageUrl(p.avatar_url), coverUrl: safeImageUrl(p.cover_url), verified: !!p.verified, showBadge: p.show_badge !== false, themeId: p.theme_id, customTokens: sanitizeCustomTokens(p.custom_tokens), socials, links, blocks: toBlocks(p.blocks) },
   };
-};
+}

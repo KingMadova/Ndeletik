@@ -1,7 +1,6 @@
 import type { CSSProperties } from "react";
 import { CUSTOMIZABLE_KEYS, type CustomTokens, type Theme } from "./types";
 
-/** Convertit un thème (+ surcharges Pro) en variables CSS --p-*. */
 export function themeCssVars(theme: Theme, custom?: CustomTokens): CSSProperties {
   const t = { ...theme.tokens };
   if (custom) {
@@ -11,20 +10,11 @@ export function themeCssVars(theme: Theme, custom?: CustomTokens): CSSProperties
     }
   }
   return {
-    "--p-bg": t.bg,
-    "--p-surface": t.surface,
-    "--p-text": t.text,
-    "--p-muted": t.muted,
-    "--p-accent": t.accent,
-    "--p-accent-2": t.accent2,
-    "--p-on-accent": t.onAccent,
-    "--p-border": t.border,
-    "--p-radius": t.radius,
-    "--p-shadow": t.shadow,
-    "--p-header-bg": t.headerBg,
-    "--p-font-display": `"${t.fontDisplay}"`,
-    "--p-font-body": `"${t.fontBody}"`,
-    "--p-tracking": theme.tracking ?? "0.02em",
+    "--p-bg": t.bg, "--p-surface": t.surface, "--p-text": t.text, "--p-muted": t.muted,
+    "--p-accent": t.accent, "--p-accent-2": t.accent2, "--p-on-accent": t.onAccent,
+    "--p-border": t.border, "--p-radius": t.radius, "--p-shadow": t.shadow,
+    "--p-header-bg": t.headerBg, "--p-font-display": `"${t.fontDisplay}"`,
+    "--p-font-body": `"${t.fontBody}"`, "--p-tracking": theme.tracking ?? "0.02em",
   } as CSSProperties;
 }
 

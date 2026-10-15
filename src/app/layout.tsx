@@ -1,43 +1,25 @@
-import type { Metadata, Viewport } from "next";
+import type { Metadata } from "next";
 import { Montserrat, Poppins } from "next/font/google";
 import "./globals.css";
 
-const montserrat = Montserrat({
-  subsets: ["latin"],
-  weight: ["600", "700", "800"],
-  variable: "--font-montserrat",
-  display: "swap",
-});
-
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  variable: "--font-poppins",
-  display: "swap",
-});
-
-export const viewport: Viewport = {
-  width: "device-width",
-  initialScale: 1,
-  themeColor: "#FFF9F3",
-};
+const montserrat = Montserrat({ subsets: ["latin"], variable: "--font-montserrat" });
+const poppins = Poppins({ weight: ["400", "500", "600"], subsets: ["latin"], variable: "--font-poppins" });
 
 export const metadata: Metadata = {
-  title: "Ndeletik — Tes liens, ton héritage",
-  description: "La page de liens nouvelle génération pour les créateurs africains. Simple, élégante, conçue pour le Mobile Money.",
+  title: { default: "Ndeletik — Ta bio, tes liens, tes ventes", template: "%s — Ndeletik" },
+  description:
+    "La page de liens des créateurs africains : liens illimités, statistiques, paiements Mobile Money et 18 thèmes diseñés pour toi.",
   openGraph: {
-    title: "Ndeletik — Tes liens, ton héritage",
-    description: "La page de liens nouvelle génération pour les créateurs africains.",
+    title: "Ndeletik — Ta bio, tes liens, tes ventes",
+    description: "Crée ta page de liens unique en 5 minutes. Paiement Mobile Money, stats en temps réel.",
     type: "website",
   },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="fr" className={montserrat.variable + " " + poppins.variable}>
-      <body className="antialiased min-h-screen">
-        {children}
-      </body>
+    <html lang="fr" className={`${montserrat.variable} ${poppins.variable}`}>
+      <body className="bg-bg text-ink antialiased">{children}</body>
     </html>
   );
 }

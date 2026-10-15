@@ -1,20 +1,9 @@
 import type { Profile } from "./types";
 
-/** Profil fictif pour tester les thèmes (/preview). */
 export const SAMPLE_PROFILE: Profile = {
-  slug: "demo",
-  displayName: "Coach Exemple",
-  headline: "Business · Mindset · Croissance",
-  bio: "J'aide les entrepreneurs à structurer leur activité et à passer à l'action.",
-  verified: true,
-  themeId: "fallback",
-  socials: [
-    { type: "instagram", url: "#" },
-    { type: "tiktok", url: "#" },
-    { type: "youtube", url: "#" },
-    { type: "whatsapp", url: "#" },
-    { type: "email", url: "#" },
-  ],
+  slug: "demo", displayName: "Coach Exemple", headline: "Business · Mindset · Croissance",
+  bio: "J'aide les entrepreneurs à structurer leur activité et à passer à l'action.", verified: true, themeId: "fallback",
+  socials: [{ type: "instagram", url: "#" }, { type: "tiktok", url: "#" }, { type: "youtube", url: "#" }, { type: "whatsapp", url: "#" }, { type: "email", url: "#" }],
   links: [
     { id: "1", title: "Réserver un appel", subtitle: "30 minutes pour faire le point", url: "#", icon: "calendar", featured: true, cta: "Réserver" },
     { id: "2", title: "Ma formation", subtitle: "Le programme complet en ligne", url: "#", icon: "book", cta: "Découvrir" },

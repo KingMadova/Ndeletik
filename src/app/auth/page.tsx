@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowRight, ArrowLeft } from "lucide-react";
+import { ArrowRight, ArrowLeft, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { Logo } from "@/components/landing/ui";
 import { isReserved } from "@/lib/reserved";
@@ -18,6 +18,12 @@ export default function AuthPage() {
   const [error, setError] = useState("");
   const router = useRouter();
 
+  const generateSlug = (email: string): string => {
+    const base = email.split("@")[0].toLowerCase().replace(/[^a-z0-9]/g, "");
+    const suffix = Math.random().toString(36).substring(2, 6);
+    return `${base}${suffix}`;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -28,8 +34,9 @@ export default function AuthPage() {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       } else {
-        const clean = username.toLowerCase().replace(/\s+/g, "");
-        if (isReserved(clean)) throw new Error("Ce nom d'utilisateur est réservé.");
+        const slug = username ? username.toLowerCase().replace(/\s+/g, "") : generateSlug(email);
+        
+        if (isReserved(slug)) throw new Error("Ce nom d'utilisateur est réservé.");
 
         const { data: authData, error: authError } = await supabase.auth.signUp({ email, password });
         if (authError) throw authError;
@@ -37,11 +44,12 @@ export default function AuthPage() {
         if (authData.user) {
           const { error: profileError } = await supabase.from("profiles").insert({
             user_id: authData.user.id,
-            slug: clean,
-            display_name: clean,
+            slug,
+            display_name: slug,
             bio: "Nouveau sur Ndeletik 🌍",
-            avatar_url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${clean}`,
+            avatar_url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${slug}`,
           });
+          
           if (profileError) {
             if (profileError.code === "23505") throw new Error("Ce pseudo est déjà pris, choisis-en un autre.");
             if (profileError.message.includes("slug_reserved")) throw new Error("Ce pseudo est réservé.");
@@ -49,6 +57,7 @@ export default function AuthPage() {
           }
         }
       }
+      
       router.push("/dashboard");
       router.refresh();
     } catch (err: any) {
@@ -58,16 +67,12 @@ export default function AuthPage() {
     }
   };
 
-  const inputCls =
-    "w-full px-4 py-3 bg-bg border border-line rounded-xl text-ink placeholder:text-muted/70 focus:outline-none focus:border-fractal-ocre transition-colors";
+  const inputCls = "w-full px-4 py-3 bg-bg border border-line rounded-xl text-ink placeholder:text-muted/70 focus:outline-none focus:border-fractal-ocre transition-colors";
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-bg relative overflow-hidden">
-      <Link
-        href="/"
-        className="absolute top-6 left-6 flex items-center gap-2 text-sm text-muted hover:text-fractal-terra transition-colors"
-      >
-        <ArrowLeft size={16} /> Retour à l&apos;accueil
+      <Link href="/" className="absolute top-6 left-6 flex items-center gap-2 text-sm text-muted hover:text-fractal-terra transition-colors">
+        <ArrowLeft size={16} /> Retour à l'accueil
       </Link>
 
       <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-fractal-or/20 rounded-full blur-3xl pointer-events-none" />
@@ -91,24 +96,28 @@ export default function AuthPage() {
         </div>
 
         {error && (
-          <div className="mb-4 p-3 bg-fractal-terra/10 border border-fractal-terra/30 rounded-xl text-fractal-terra text-sm">
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-4 p-3 bg-fractal-terra/10 border border-fractal-terra/30 rounded-xl text-fractal-terra text-sm"
+          >
             {error}
-          </div>
+          </motion.div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {!isLogin && (
-            <div>
-              <label className="block text-sm font-medium text-ink mb-1">Nom d&apos;utilisateur (unique)</label>
+            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>
+              <label className="block text-sm font-medium text-ink mb-1">Nom d'utilisateur (optionnel)</label>
               <input
                 type="text"
-                required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 className={inputCls}
-                placeholder="ex : konan_officiel"
+                placeholder="Laisser vide pour génération automatique"
               />
-            </div>
+              <p className="text-xs text-muted mt-1">Si laissé vide, un pseudo unique sera généré automatiquement.</p>
+            </motion.div>
           )}
 
           <div>
@@ -142,8 +151,17 @@ export default function AuthPage() {
             disabled={loading}
             className="w-full py-3 bg-gradient-to-r from-fractal-or via-fractal-ocre to-fractal-terra hover:opacity-90 text-white font-semibold rounded-xl flex items-center justify-center gap-2 transition disabled:opacity-50"
           >
-            {loading ? "Chargement..." : isLogin ? "Se connecter" : "Créer mon compte"}
-            {!loading && <ArrowRight size={18} />}
+            {loading ? (
+              <>
+                <Loader2 size={18} className="animate-spin" />
+                Chargement...
+              </>
+            ) : (
+              <>
+                {isLogin ? "Se connecter" : "Créer mon compte"}
+                <ArrowRight size={18} />
+              </>
+            )}
           </motion.button>
         </form>
 
