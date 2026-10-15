@@ -31,14 +31,14 @@ const inputCls =
 
 function newBlock(type: string): Block {
   switch (type) {
-    case "about": return { type: "about", title: "À propos", text: "" };
-    case "stats": return { type: "stats", items: [{ value: "100+", label: "Clients" }] };
-    case "faq": return { type: "faq", items: [{ q: "Question ?", a: "Réponse." }] };
+    case "about":      return { type: "about", title: "À propos", text: "" };
+    case "stats":      return { type: "stats", items: [{ value: "100+", label: "Clients" }] };
+    case "faq":        return { type: "faq", items: [{ q: "Question ?", a: "Réponse." }] };
     case "newsletter": return { type: "newsletter", title: "Rejoins ma newsletter", subtitle: "" };
-    case "offer": return { type: "offer", title: "Mon offre", desc: "", tag: "", cta: "Réserver", icon: "gift" };
-    case "contact": return { type: "contact", title: "Où me trouver", text: "", icon: "pin" };
-    case "hint": return { type: "hint", label: "Clique sur mes liens", emoji: "👆" };
-    default: return { type: "separator", label: "Conecte-se" };
+    case "offer":      return { type: "offer", title: "Mon offre", desc: "", tag: "", cta: "Réserver", icon: "gift" };
+    case "contact":    return { type: "contact", title: "Où me trouver", text: "", icon: "pin" };
+    case "hint":       return { type: "hint", label: "Clique sur mes liens", emoji: "👆" };
+    default:           return { type: "separator", label: "Conecte-se" };
   }
 }
 
@@ -71,7 +71,10 @@ export function SectionsEditor({ profileId, initialBlocks, initialSocials }: Pro
     setSaving(true);
     const { error } = await supabase
       .from("profiles")
-      .update({ blocks, socials: socials.filter((s) => s.url.trim() !== "") })
+      .update({
+        blocks,
+        socials: socials.filter((s) => s.url.trim() !== ""),
+      })
       .eq("id", profileId);
     setSaving(false);
     if (error) return toast(`Enregistrement échoué : ${error.message}`, false);
@@ -209,16 +212,14 @@ export function SectionsEditor({ profileId, initialBlocks, initialSocials }: Pro
                   <input value={b.tag ?? ""} onChange={(e) => patch(i, { tag: e.target.value })} placeholder="Badge (ex : Aulas Presenciais)" className={`${inputCls} w-1/2`} />
                   <select value={b.icon ?? ""} onChange={(e) => patch(i, { icon: e.target.value || undefined })} className={`${inputCls} w-1/2`} aria-label="Icône">
                     <option value="">— Icône —</option>
-                    {ICON_KEYS.map((k) => (
-                      <option key={k} value={k}>{k}</option>
-                    ))}
+                    {ICON_KEYS.map((k) => <option key={k} value={k}>{k}</option>)}
                   </select>
                 </div>
                 <input value={b.title} onChange={(e) => patch(i, { title: e.target.value })} placeholder="Titre de l'offre" className={inputCls} />
                 <input value={b.desc ?? ""} onChange={(e) => patch(i, { desc: e.target.value })} placeholder="Description courte" className={inputCls} />
                 <div className="flex gap-2">
-                  <input value={b.dateLabel ?? ""} onChange={(e) => patch(i, { dateLabel: e.target.value })} placeholder="Widget date : libellé (ex : Dia)" className={`${inputCls} w-1/3`} />
-                  <input value={b.dateValue ?? ""} onChange={(e) => patch(i, { dateValue: e.target.value })} placeholder="Valeur (ex : 10)" className={`${inputCls} w-1/3`} />
+                  <input value={b.dateLabel ?? ""} onChange={(e) => patch(i, { dateLabel: e.target.value })} placeholder="Widget date : libellé" className={`${inputCls} w-1/3`} />
+                  <input value={b.dateValue ?? ""} onChange={(e) => patch(i, { dateValue: e.target.value })} placeholder="Valeur" className={`${inputCls} w-1/3`} />
                   <input value={b.emoji ?? ""} onChange={(e) => patch(i, { emoji: e.target.value })} placeholder="Ou emoji" className={`${inputCls} w-1/3`} />
                 </div>
                 <input value={b.image ?? ""} onChange={(e) => patch(i, { image: e.target.value })} placeholder="URL image (https, optionnel)" className={inputCls} />
@@ -234,9 +235,7 @@ export function SectionsEditor({ profileId, initialBlocks, initialSocials }: Pro
                 <div className="flex gap-2">
                   <select value={b.icon ?? ""} onChange={(e) => patch(i, { icon: e.target.value || undefined })} className={`${inputCls} w-1/2`} aria-label="Icône">
                     <option value="">— Icône —</option>
-                    {ICON_KEYS.map((k) => (
-                      <option key={k} value={k}>{k}</option>
-                    ))}
+                    {ICON_KEYS.map((k) => <option key={k} value={k}>{k}</option>)}
                   </select>
                   <input value={b.emoji ?? ""} onChange={(e) => patch(i, { emoji: e.target.value })} placeholder="Ou emoji (ex : 💈)" className={`${inputCls} w-1/2`} />
                 </div>

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { cache } from "react";
 import { ProfileRenderer } from "@/components/profile/ProfileRenderer";
 import { ViewBeacon } from "@/components/profile/ViewBeacon";
+import { DEMO_PROFILE } from "@/lib/themes/demo";
 import { toProfile } from "@/lib/profile-mapper";
 import { createPublicClient } from "@/lib/supabase/public";
 
@@ -20,7 +21,14 @@ const load = cache(async (handle: string) => {
 });
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const res = await load((await params).handle);
+  const handle = (await params).handle;
+  if (handle === "@demo") {
+    return {
+      title: "Démo — Ndeletik",
+      description: "Découvre les blocs Ndeletik : offres, contact, séparateurs, newsletter, sur un thème Business.",
+    };
+  }
+  const res = await load(handle);
   if (!res) return { title: "Page introuvable" };
   return {
     title: `${res.profile.displayName} — Ndeletik`,
@@ -29,7 +37,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function PublicProfilePage({ params }: Props) {
-  const res = await load((await params).handle);
+  const handle = (await params).handle;
+
+  // Vitrine statique des nouveaux designs : aucun profil « demo » en base (slug réservé).
+  if (handle === "@demo") {
+    return <ProfileRenderer profile={DEMO_PROFILE} plan="business" preview />;
+  }
+
+  const res = await load(handle);
   if (!res) notFound();
   return (
     <>
