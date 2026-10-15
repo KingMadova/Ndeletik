@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import { Reorder, useDragControls, AnimatePresence, motion } from "framer-motion";
-import { GripVertical, Settings, Trash2 } from "lucide-react";
+import { GripVertical, Settings, Trash2, BarChart3 } from "lucide-react";
 import type { LinkItem as LinkItemType } from "@/lib/types";
 import { getBlockMeta, normalizeUrl } from "./blockMeta";
 import { useToast } from "./Toast";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { detectIcon } from "@/lib/detect-icon";
 
 export const validUrl = (v: string) => {
   try {
@@ -22,9 +23,10 @@ type Props = {
   onUpdate: (id: string, updates: Partial<LinkItemType>) => void;
   onDelete: (id: string) => void;
   onDragEnd: () => void;
+  onShowAnalytics?: (link: LinkItemType) => void;
 };
 
-export function LinkItem({ link, onUpdate, onDelete, onDragEnd }: Props) {
+export function LinkItem({ link, onUpdate, onDelete, onDragEnd, onShowAnalytics }: Props) {
   const controls = useDragControls();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
@@ -32,6 +34,15 @@ export function LinkItem({ link, onUpdate, onDelete, onDragEnd }: Props) {
   const [title, setTitle] = useState(link.title);
   const [url, setUrl] = useState(link.url);
   const { Icon, bg } = getBlockMeta(link.url);
+
+  const handleUrlChange = (newUrl: string) => {
+    setUrl(newUrl);
+    // Détection auto d'icône
+    if (newUrl && validUrl(newUrl)) {
+      const detected = detectIcon(newUrl);
+      onUpdate(link.id, { icon: detected });
+    }
+  };
 
   const save = () => {
     if (!title.trim() || !url.trim()) {
@@ -81,6 +92,16 @@ export function LinkItem({ link, onUpdate, onDelete, onDragEnd }: Props) {
 
         {!link.enabled && <span className="text-xs text-muted bg-soft px-2 py-1 rounded-full">Brouillon</span>}
 
+        {onShowAnalytics && (
+          <button
+            onClick={() => onShowAnalytics(link)}
+            aria-label="Voir les statistiques"
+            className="p-2 rounded-lg hover:bg-soft text-muted hover:text-fractal-ocre transition-colors"
+          >
+            <BarChart3 size={16} />
+          </button>
+        )}
+
         <button
           onClick={() => setOpen((o) => !o)}
           aria-label="Paramètres"
@@ -122,7 +143,7 @@ export function LinkItem({ link, onUpdate, onDelete, onDragEnd }: Props) {
                 <span className="text-xs text-muted mb-1.5 block">URL</span>
                 <input
                   value={url}
-                  onChange={(e) => setUrl(e.target.value)}
+                  onChange={(e) => handleUrlChange(e.target.value)}
                   className="w-full rounded-xl border border-line bg-bg px-4 py-2.5 text-sm text-ink focus:outline-none focus:border-fractal-ocre transition-colors"
                 />
               </label>
@@ -148,7 +169,6 @@ export function LinkItem({ link, onUpdate, onDelete, onDragEnd }: Props) {
         )}
       </AnimatePresence>
 
-      {/* Confirmation de suppression (portal : aucun souci de stacking dans la liste animée) */}
       <ConfirmDialog
         open={confirming}
         title="Supprimer ce bloc ?"

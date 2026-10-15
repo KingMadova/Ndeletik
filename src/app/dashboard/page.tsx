@@ -3,13 +3,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Reorder, motion, AnimatePresence } from "framer-motion";
-import { LogOut, Plus, Link2, Eye, User, Palette, BarChart3, SwatchBook, TrendingUp, Globe, Clock } from "lucide-react";
+import { LogOut, Plus, Link2, Eye, User, Palette, BarChart3, SwatchBook, TrendingUp, Globe } from "lucide-react";
+import dynamic from "next/dynamic";
 import { supabase } from "@/lib/supabaseClient";
 import type { LinkItem as LinkItemType, Profile } from "@/lib/types";
 import { LinkItem } from "@/components/dashboard/LinkItem";
 import { ProfileCard, Banner } from "@/components/dashboard/ProfileCard";
 import { AddBlockModal } from "@/components/dashboard/AddBlockModal";
 import { LinkTemplates } from "@/components/dashboard/LinkTemplates";
+import { AnalyticsChart } from "@/components/dashboard/AnalyticsChart";
+import { LinkAnalyticsModal } from "@/components/dashboard/LinkAnalyticsModal";
 import { useToast } from "@/components/dashboard/Toast";
 import { normalizeUrl } from "@/components/dashboard/blockMeta";
 import { UploadButton } from "@/components/dashboard/UploadButton";
@@ -17,6 +20,11 @@ import { ShortLinkManager } from "@/components/dashboard/ShortLinkManager";
 import { OfflineBanner } from "@/components/dashboard/OfflineBanner";
 import { COUNTRY_GROUPS } from "@/lib/countries";
 import { isReserved } from "@/lib/reserved";
+
+const WorldMap = dynamic(
+  () => import("@/components/admin/WorldMap").then((m) => m.WorldMap),
+  { ssr: false, loading: () => <div className="h-64 rounded-xl bg-soft animate-pulse" /> }
+);
 
 const btnPrimary = "bg-fractal-ocre hover:bg-fractal-terra text-white font-semibold transition-colors shadow-soft";
 
@@ -28,6 +36,7 @@ const TABS: { id: Tab; label: string; icon: any }[] = [
 ];
 
 type TrafficSource = { name: string; count: number; percentage: number };
+type CountryMarker = { lat: number; lon: number; count: number; country: string };
 
 export default function Dashboard() {
   const router = useRouter();
@@ -39,6 +48,8 @@ export default function Dashboard() {
   const [tab, setTab] = useState<Tab>("lynk");
   const [modal, setModal] = useState(false);
   const [trafficSources, setTrafficSources] = useState<TrafficSource[]>([]);
+  const [markers, setMarkers] = useState<CountryMarker[]>([]);
+  const [analyticsLink, setAnalyticsLink] = useState<LinkItemType | null>(null);
 
   const committed = useRef<LinkItemType[]>([]);
   const latest = useRef<LinkItemType[]>([]);
@@ -58,7 +69,7 @@ export default function Dashboard() {
       const [{ data: l }, { data: myPlan }, { data: clicks }] = await Promise.all([
         supabase.from("links").select("*").eq("profile_id", prof.id).order("position", { ascending: true }),
         supabase.rpc("my_plan"),
-        supabase.from("link_clicks").select("referrer").eq("profile_id", prof.id),
+        supabase.from("link_clicks").select("referrer, country").eq("profile_id", prof.id),
       ]);
       
       setProfile(prof);
@@ -81,6 +92,31 @@ export default function Dashboard() {
         .slice(0, 5);
       
       setTrafficSources(sources);
+
+      // Agrégation par pays pour la carte
+      const countryMap = new Map<string, number>();
+      (clicks ?? []).forEach((c: any) => {
+        if (c.country) {
+          countryMap.set(c.country, (countryMap.get(c.country) ?? 0) + 1);
+        }
+      });
+
+      // Coordonnées approximatives (tu peux améliorer avec une vraie API de géocodage)
+      const coords: Record<string, [number, number]> = {
+        FR: [46.6, 2.2], US: [37.0, -95.7], GB: [55.3, -3.4], DE: [51.1, 10.4],
+        ES: [40.4, -3.7], IT: [41.8, 12.5], BE: [50.5, 4.4], CH: [46.8, 8.2],
+        CA: [56.1, -106.3], CG: [-0.2, 15.8], CM: [7.3, 12.3], CI: [7.5, -5.5],
+        SN: [14.4, -14.4], MA: [31.7, -7.0], TN: [33.8, 9.7], DZ: [28.0, 1.6],
+      };
+
+      const markersList: CountryMarker[] = Array.from(countryMap.entries()).map(([country, count]) => ({
+        lat: coords[country]?.[0] ?? 0,
+        lon: coords[country]?.[1] ?? 0,
+        count,
+        country,
+      })).filter((m) => m.lat !== 0);
+
+      setMarkers(markersList);
       setLoading(false);
     })();
   }, [router]);
@@ -299,7 +335,14 @@ export default function Dashboard() {
                     ) : (
                       <Reorder.Group axis="y" values={links} onReorder={setLinks} className="space-y-2.5 p-0">
                         {links.map((l) => (
-                          <LinkItem key={l.id} link={l} onUpdate={updateLink} onDelete={deleteLink} onDragEnd={persistOrder} />
+                          <LinkItem
+                            key={l.id}
+                            link={l}
+                            onUpdate={updateLink}
+                            onDelete={deleteLink}
+                            onDragEnd={persistOrder}
+                            onShowAnalytics={setAnalyticsLink}
+                          />
                         ))}
                       </Reorder.Group>
                     )}
@@ -317,14 +360,11 @@ export default function Dashboard() {
                 )}
 
                 {tab === "statistic" && (
-                  <motion.div key="statistic" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}>
-                    <div className="bg-soft rounded-2xl p-5 border border-line mb-4">
-                      <div className="text-xs text-muted mb-1">Clics totaux</div>
-                      <div className="text-3xl font-display font-bold">{totalClicks}</div>
-                    </div>
+                  <motion.div key="statistic" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="space-y-6">
+                    <AnalyticsChart profile={profile} />
 
                     {trafficSources.length > 0 && (
-                      <div className="bg-soft rounded-2xl p-5 border border-line mb-4">
+                      <div className="bg-soft rounded-2xl p-5 border border-line">
                         <div className="flex items-center gap-2 mb-4">
                           <Globe size={16} className="text-fractal-ocre" />
                           <h3 className="text-sm font-semibold">Sources de trafic</h3>
@@ -350,27 +390,39 @@ export default function Dashboard() {
                       </div>
                     )}
 
-                    <p className="text-sm font-semibold mb-3">Détails par lien</p>
-                    <ul className="space-y-3">
-                      {[...links]
-                        .sort((a, b) => b.clicks - a.clicks)
-                        .map((l) => (
-                          <li key={l.id}>
-                            <div className="flex justify-between text-sm mb-1">
-                              <span className="truncate pr-3 font-medium">{l.title}</span>
-                              <span className="text-muted">{l.clicks} clics</span>
-                            </div>
-                            <div className="h-2 rounded-full bg-line/50">
-                              <motion.div
-                                initial={{ width: 0 }}
-                                animate={{ width: `${(l.clicks / maxClicks) * 100}%` }}
-                                transition={{ duration: 0.5, ease: "easeOut" }}
-                                className="h-2 rounded-full bg-fractal-ocre"
-                              />
-                            </div>
-                          </li>
-                        ))}
-                    </ul>
+                    {markers.length > 0 && (
+                      <div className="bg-soft rounded-2xl p-5 border border-line">
+                        <div className="flex items-center gap-2 mb-4">
+                          <Globe size={16} className="text-fractal-ocre" />
+                          <h3 className="text-sm font-semibold">Géolocalisation des visiteurs</h3>
+                        </div>
+                        <WorldMap markers={markers.map((m) => ({ lat: m.lat, lon: m.lon, plan: "free", count: m.count, country: m.country }))} />
+                      </div>
+                    )}
+
+                    <div>
+                      <p className="text-sm font-semibold mb-3">Détails par lien</p>
+                      <ul className="space-y-3">
+                        {[...links]
+                          .sort((a, b) => b.clicks - a.clicks)
+                          .map((l) => (
+                            <li key={l.id}>
+                              <div className="flex justify-between text-sm mb-1">
+                                <span className="truncate pr-3 font-medium">{l.title}</span>
+                                <span className="text-muted">{l.clicks} clics</span>
+                              </div>
+                              <div className="h-2 rounded-full bg-line/50">
+                                <motion.div
+                                  initial={{ width: 0 }}
+                                  animate={{ width: `${(l.clicks / maxClicks) * 100}%` }}
+                                  transition={{ duration: 0.5, ease: "easeOut" }}
+                                  className="h-2 rounded-full bg-fractal-ocre"
+                                />
+                              </div>
+                            </li>
+                          ))}
+                      </ul>
+                    </div>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -393,6 +445,7 @@ export default function Dashboard() {
       </div>
 
       <AddBlockModal open={modal} onClose={() => setModal(false)} onAdd={addLink} />
+      <LinkAnalyticsModal open={!!analyticsLink} onClose={() => setAnalyticsLink(null)} link={analyticsLink} profile={profile} />
       {toastNode}
     </div>
   );
