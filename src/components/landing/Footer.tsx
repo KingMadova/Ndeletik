@@ -8,7 +8,7 @@ export function FinalCta() {
         Libère la puissance de <Mark /> <GradText>Ndeletik</GradText>
       </h2>
       <p className="mx-auto mt-4 max-w-md text-sm text-muted">Crée ta page gratuite maintenant et partage-la partout.</p>
-      <BtnDark href="/auth" className="mt-7 px-7 py-3.5 text-base">
+      <BtnDark href="/auth?mode=signup" className="mt-7 px-7 py-3.5 text-base">
         Créer ma page gratuite
       </BtnDark>
     </section>
