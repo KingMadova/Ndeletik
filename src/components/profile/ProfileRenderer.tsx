@@ -227,14 +227,33 @@ export function ProfileRenderer({ profile, plan, themeOverride, customOverride, 
             </nav>
           )}
         </header>
-        <nav className="nd-links" aria-label="Liens">
-          {links.map((l) => (
-            <LinkView key={l.id} link={l} layout={theme.layout} href={href(l)} />
-          ))}
-        </nav>
-        {profile.blocks?.map((b, i) => (
-          <BlockView key={i} block={b} slug={profile.slug} preview={preview} />
-        ))}
+        {theme.plan === "pro" || theme.plan === "business" ? (
+          <section className="nd-conversion-zone" aria-label="Offres et activités">
+            <div className="nd-zone-heading">
+              <span className="nd-zone-kicker">Découvrez</span>
+              <span className="nd-zone-title">Offres & activités</span>
+            </div>
+            <nav className="nd-links" aria-label="Offres et liens">
+              {links.map((l) => (
+                <LinkView key={l.id} link={l} layout={theme.layout} href={href(l)} />
+              ))}
+            </nav>
+            {profile.blocks?.map((b, i) => (
+              <BlockView key={i} block={b} slug={profile.slug} preview={preview} />
+            ))}
+          </section>
+        ) : (
+          <>
+            <nav className="nd-links" aria-label="Liens">
+              {links.map((l) => (
+                <LinkView key={l.id} link={l} layout={theme.layout} href={href(l)} />
+              ))}
+            </nav>
+            {profile.blocks?.map((b, i) => (
+              <BlockView key={i} block={b} slug={profile.slug} preview={preview} />
+            ))}
+          </>
+        )}
         {showBadge && (
           <footer className="nd-foot">
             <Link href="/">Créé avec Ndeletik</Link>
