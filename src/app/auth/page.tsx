@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -18,6 +18,13 @@ export default function AuthPage() {
   const [error, setError] = useState("");
   const router = useRouter();
 
+  // Le lien « Connexion » de la landing page ouvre explicitement le mode connexion.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("mode") === "login") setIsLogin(true);
+    if (params.get("mode") === "signup") setIsLogin(false);
+  }, []);
+
   const generateSlug = (email: string): string => {
     const base = email.split("@")[0].toLowerCase().replace(/[^a-z0-9]/g, "");
     const suffix = Math.random().toString(36).substring(2, 6);
@@ -34,8 +41,21 @@ export default function AuthPage() {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       } else {
-        const slug = username ? username.toLowerCase().replace(/\s+/g, "") : generateSlug(email);
-        
+        const rawSlug = username.trim() || generateSlug(email);
+        const slug = rawSlug
+          .normalize("NFKD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .toLowerCase()
+          .replace(/[^a-z0-9-]/g, "")
+          .replace(/-+/g, "-")
+          .replace(/^-|-$/g, "");
+
+        if (slug.length < 3) {
+          throw new Error("Votre pseudo doit contenir au moins 3 caractères (lettres, chiffres ou tirets).");
+        }
+        if (slug.length > 30) {
+          throw new Error("Votre pseudo ne peut pas dépasser 30 caractères.");
+        }
         if (isReserved(slug)) throw new Error("Ce nom d'utilisateur est réservé.");
 
         const { data: authData, error: authError } = await supabase.auth.signUp({ email, password });
@@ -49,7 +69,7 @@ export default function AuthPage() {
             bio: "Nouveau sur Ndeletik 🌍",
             avatar_url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${slug}`,
           });
-          
+
           if (profileError) {
             if (profileError.code === "23505") throw new Error("Ce pseudo est déjà pris, choisis-en un autre.");
             if (profileError.message.includes("slug_reserved")) throw new Error("Ce pseudo est réservé.");
@@ -57,11 +77,11 @@ export default function AuthPage() {
           }
         }
       }
-      
+
       router.push("/dashboard");
       router.refresh();
-    } catch (err: any) {
-      setError(err.message || "Une erreur est survenue");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Une erreur est survenue. Réessaie.");
     } finally {
       setLoading(false);
     }
@@ -99,6 +119,7 @@ export default function AuthPage() {
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
+            role="alert"
             className="mb-4 p-3 bg-fractal-terra/10 border border-fractal-terra/30 rounded-xl text-fractal-terra text-sm"
           >
             {error}
@@ -108,22 +129,28 @@ export default function AuthPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           {!isLogin && (
             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>
-              <label className="block text-sm font-medium text-ink mb-1">Nom d'utilisateur (optionnel)</label>
+              <label htmlFor="username" className="block text-sm font-medium text-ink mb-1">Nom d'utilisateur (optionnel)</label>
               <input
+                id="username"
                 type="text"
+                autoComplete="username"
+                minLength={3}
+                maxLength={30}
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 className={inputCls}
-                placeholder="Laisser vide pour génération automatique"
+                placeholder="ex. alvine-yoka"
               />
-              <p className="text-xs text-muted mt-1">Si laissé vide, un pseudo unique sera généré automatiquement.</p>
+              <p className="text-xs text-muted mt-1">3 à 30 caractères : lettres, chiffres ou tirets. Si laissé vide, un pseudo sera généré.</p>
             </motion.div>
           )}
 
           <div>
-            <label className="block text-sm font-medium text-ink mb-1">Email</label>
+            <label htmlFor="email" className="block text-sm font-medium text-ink mb-1">Email</label>
             <input
+              id="email"
               type="email"
+              autoComplete="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -133,9 +160,12 @@ export default function AuthPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-ink mb-1">Mot de passe</label>
+            <label htmlFor="password" className="block text-sm font-medium text-ink mb-1">Mot de passe</label>
             <input
+              id="password"
               type="password"
+              autoComplete={isLogin ? "current-password" : "new-password"}
+              minLength={6}
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -167,6 +197,7 @@ export default function AuthPage() {
 
         <div className="mt-6 text-center">
           <button
+            type="button"
             onClick={() => {
               setIsLogin(!isLogin);
               setError("");
