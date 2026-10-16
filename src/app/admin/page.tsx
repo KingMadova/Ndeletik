@@ -138,6 +138,7 @@ export default function AdminPage() {
   const { toast, node: toastNode } = useToast();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
 
   const [q, setQ] = useState("");
   const [country, setCountry] = useState("all");
@@ -148,48 +149,74 @@ export default function AdminPage() {
   useEffect(() => {
     let alive = true;
     (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return router.replace("/auth");
+      try {
+        setLoadError("");
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) throw new Error(`Vérification de session impossible : ${sessionError.message}`);
+        if (!session) {
+          router.replace("/auth?mode=login");
+          return;
+        }
 
-      const [{ data: profs }, { data: accs }, { data: lnks }] = await Promise.all([
-        supabase.from("profiles").select("id, user_id, slug, display_name, country, views, theme_id, created_at"),
-        supabase.from("accounts").select("user_id, plan, role"),
-        supabase.from("links").select("profile_id, clicks"),
-      ]);
-      if (!alive) return;
+        const [profilesResult, accountsResult, linksResult] = await Promise.all([
+          supabase.from("profiles").select("id, user_id, slug, display_name, country, views, theme_id, created_at"),
+          supabase.from("accounts").select("user_id, plan, role"),
+          supabase.from("links").select("profile_id, clicks"),
+        ]);
+        if (!alive) return;
 
-      const me = (accs ?? []).find((a: any) => a.user_id === session.user.id);
-      if (!me || me.role !== "admin") {
-        toast(`Accès admin refusé (rôle : ${me?.role ?? "inconnu"})`, false);
-        return router.replace("/dashboard");
+        const failedQuery = [
+          ["profiles", profilesResult.error],
+          ["accounts", accountsResult.error],
+          ["links", linksResult.error],
+        ].find(([, error]) => error);
+
+        if (failedQuery) {
+          const [table, error] = failedQuery as [string, { message: string }];
+          throw new Error(`Lecture de la table « ${table} » impossible : ${error.message}. Vérifiez les permissions Supabase (RLS) et les politiques de lecture.`);
+        }
+
+        const profs = profilesResult.data ?? [];
+        const accs = accountsResult.data ?? [];
+        const lnks = linksResult.data ?? [];
+        const me = accs.find((a: any) => a.user_id === session.user.id);
+        if (!me || me.role !== "admin") {
+          setLoadError(`Le compte connecté n'est pas reconnu comme administrateur dans « accounts » (rôle : ${me?.role ?? "compte absent"}). Le dashboard n'a pas chargé les données.`);
+          setLoading(false);
+          return;
+        }
+
+        const accByUser = new Map<string, any>(accs.map((a: any) => [a.user_id, a]));
+        const linkAgg = new Map<string, { count: number; clicks: number }>();
+        lnks.forEach((l: any) => {
+          const a = linkAgg.get(l.profile_id) ?? { count: 0, clicks: 0 };
+          a.count += 1;
+          a.clicks += l.clicks ?? 0;
+          linkAgg.set(l.profile_id, a);
+        });
+
+        setRows(
+          profs.map((p: any) => ({
+            id: p.id,
+            user_id: p.user_id,
+            slug: p.slug,
+            display_name: p.display_name,
+            country: p.country,
+            views: p.views ?? 0,
+            theme_id: p.theme_id,
+            created_at: p.created_at,
+            plan: accByUser.get(p.user_id)?.plan ?? "free",
+            role: accByUser.get(p.user_id)?.role ?? "user",
+            links_count: linkAgg.get(p.id)?.count ?? 0,
+            clicks_total: linkAgg.get(p.id)?.clicks ?? 0,
+          }))
+        );
+      } catch (error) {
+        if (!alive) return;
+        setLoadError(error instanceof Error ? error.message : "Une erreur inconnue empêche le chargement des données.");
+      } finally {
+        if (alive) setLoading(false);
       }
-
-      const accByUser = new Map<string, any>((accs ?? []).map((a: any) => [a.user_id, a]));
-      const linkAgg = new Map<string, { count: number; clicks: number }>();
-      (lnks ?? []).forEach((l: any) => {
-        const a = linkAgg.get(l.profile_id) ?? { count: 0, clicks: 0 };
-        a.count += 1;
-        a.clicks += l.clicks ?? 0;
-        linkAgg.set(l.profile_id, a);
-      });
-
-      setRows(
-        ((profs ?? []) as any[]).map((p) => ({
-          id: p.id,
-          user_id: p.user_id,
-          slug: p.slug,
-          display_name: p.display_name,
-          country: p.country,
-          views: p.views ?? 0,
-          theme_id: p.theme_id,
-          created_at: p.created_at,
-          plan: accByUser.get(p.user_id)?.plan ?? "free",
-          role: accByUser.get(p.user_id)?.role ?? "user",
-          links_count: linkAgg.get(p.id)?.count ?? 0,
-          clicks_total: linkAgg.get(p.id)?.clicks ?? 0,
-        }))
-      );
-      setLoading(false);
     })();
     return () => {
       alive = false;
@@ -295,6 +322,24 @@ export default function AdminPage() {
             ))}
           </div>
           <div className="h-96 rounded-2xl bg-line/70" />
+        </div>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="mx-auto max-w-3xl rounded-2xl border border-rose-200 bg-white p-6 shadow-sm sm:p-8">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-rose-600">
+            <Shield size={19} />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-slate-900">Le dashboard n'a pas pu charger ses données</h1>
+            <p className="mt-3 rounded-xl border border-rose-100 bg-rose-50 p-4 text-sm leading-6 text-rose-900" role="alert">{loadError}</p>
+            <p className="mt-3 text-sm leading-6 text-slate-600">Aucune donnée vide n'est présentée comme si le chargement avait réussi. Le détail ci-dessus aide à identifier si le blocage vient du rôle, d'une table ou des permissions Supabase.</p>
+            <button type="button" onClick={() => window.location.reload()} className="mt-5 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700">Recharger le dashboard</button>
+          </div>
         </div>
       </div>
     );
