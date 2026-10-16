@@ -115,7 +115,7 @@ export function Pricing() {
               </span>
               <span className="ml-1 text-sm text-muted">FCFA / mois</span>
             </div>
-            <Link href="/auth" className="rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-bg">
+            <Link href="/auth?mode=signup" className="rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-bg">
               Choisir {plan}
             </Link>
           </div>
