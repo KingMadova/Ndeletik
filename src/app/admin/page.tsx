@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useToast } from "@/components/dashboard/Toast";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { getCoords } from "@/lib/countryCoords";
 
 const WorldMap = dynamic(
@@ -138,6 +139,7 @@ export default function AdminPage() {
   const { toast, node: toastNode } = useToast();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deleteTarget, setDeleteTarget] = useState<Row | null>(null);
 
   const [q, setQ] = useState("");
   const [country, setCountry] = useState("all");
@@ -276,7 +278,6 @@ export default function AdminPage() {
   };
 
   const deleteUser = async (r: Row) => {
-    if (!confirm(`Supprimer définitivement @${r.slug}, ses liens et son compte ?`)) return;
     const { error: e1 } = await supabase.from("profiles").delete().eq("id", r.id);
     const { error: e2 } = await supabase.from("accounts").delete().eq("user_id", r.user_id);
     if (e1 || e2) return toast("Suppression échouée", false);
@@ -601,7 +602,7 @@ export default function AdminPage() {
                             <Crown size={15} />
                           </button>
                           <button
-                            onClick={() => deleteUser(r)}
+                            onClick={() => setDeleteTarget(r)}
                             aria-label="Supprimer"
                             className="p-1.5 rounded-md text-muted hover:bg-red-50 hover:text-red-600 transition-colors"
                           >
@@ -624,6 +625,21 @@ export default function AdminPage() {
           </p>
         </div>
       </div>
+
+      {/* Confirmation de suppression d'un compte (charte, tactile, sans confirm() natif) */}
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title={`Supprimer @${deleteTarget?.slug} ?`}
+        message="Son profil, ses liens, ses raccourcis et ses statistiques seront définitivement supprimés. Cette action est irréversible."
+        confirmLabel="Supprimer"
+        danger
+        onConfirm={() => {
+          if (deleteTarget) deleteUser(deleteTarget);
+          setDeleteTarget(null);
+        }}
+        onCancel={() => setDeleteTarget(null)}
+      />
+
       {toastNode}
     </div>
   );

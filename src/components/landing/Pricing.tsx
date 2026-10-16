@@ -14,7 +14,7 @@ const plans = {
     m: 3000,
     feats: [
       "Liens illimités",
-      "7 thèmes Pro + couleurs personnalisables",
+      "8 thèmes Pro + couleurs personnalisables",
       "Paiement Mobile Money",
       "Statistiques détaillées",
       "Sans badge Ndeletik",
@@ -24,7 +24,7 @@ const plans = {
     m: 9000,
     feats: [
       "Tout le plan Pro",
-      "7 thèmes Business (bannières, couvertures)",
+      "8 thèmes Business (bannières, couvertures)",
       "Domaine personnalisé",
       "Export des données",
       "Support prioritaire",

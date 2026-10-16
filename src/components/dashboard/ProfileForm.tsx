@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card, CardTitle } from "@/components/ui/Card";
 import { Field, inputClass } from "@/components/ui/Field";
+import { COUNTRY_GROUPS } from "@/lib/countries";
 import { useDashboard } from "./DashboardProvider";
 import { ProfileAvatar } from "./ProfileAvatar";
 import { UploadButton } from "./UploadButton";
@@ -11,6 +12,7 @@ import { UploadButton } from "./UploadButton";
 /** Photo, bannière et informations du profil. À monter avec key={profileId} pour repartir des bonnes valeurs. */
 export function ProfileForm() {
   const { row, saveProfile } = useDashboard();
+  const rowCountry = (row?.country as string | null | undefined) ?? "";
   const [f, setF] = useState({
     slug: row?.slug ?? "",
     displayName: row?.display_name ?? "",
@@ -18,19 +20,24 @@ export function ProfileForm() {
     bio: row?.bio ?? "",
     avatarUrl: row?.avatar_url ?? "",
     coverUrl: row?.cover_url ?? "",
+    country: rowCountry,
   });
   const [saving, setSaving] = useState(false);
+
   if (!row) return null;
 
-  const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-    setF((p) => ({ ...p, [k]: e.target.value }));
+  const set =
+    (k: keyof typeof f) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
+      setF((p) => ({ ...p, [k]: e.target.value }));
 
   const cleanSlug = f.slug.trim().toLowerCase().replace(/[^a-z0-9_.-]/g, "") || row.slug;
   const dirty =
     cleanSlug !== row.slug ||
     f.displayName.trim() !== row.display_name ||
     f.headline.trim() !== (row.headline ?? "") ||
-    f.bio.trim() !== (row.bio ?? "");
+    f.bio.trim() !== (row.bio ?? "") ||
+    f.country !== rowCountry;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,6 +47,7 @@ export function ProfileForm() {
       displayName: f.displayName.trim() || row.display_name,
       headline: f.headline.trim() || undefined,
       bio: f.bio.trim() || undefined,
+      country: f.country || undefined,
     });
     setSaving(false);
   };
@@ -83,10 +91,33 @@ export function ProfileForm() {
           <input value={f.displayName} onChange={set("displayName")} className={inputClass} />
         </Field>
         <Field label="Titre (sous le nom)">
-          <input value={f.headline} onChange={set("headline")} className={inputClass} placeholder="Ex : Coach business · Pointe-Noire" />
+          <input
+            value={f.headline}
+            onChange={set("headline")}
+            className={inputClass}
+            placeholder="Ex : Coach business · Pointe-Noire"
+          />
         </Field>
         <Field label="Bio">
           <textarea rows={3} value={f.bio} onChange={set("bio")} className={inputClass} />
+        </Field>
+        <Field
+          label="Pays"
+          hint="Sert à tes statistiques (carte des visiteurs) et à adapter tes moyens de paiement."
+        >
+          <select value={f.country} onChange={set("country")} className={inputClass}>
+            <option value="">— Choisir mon pays —</option>
+            {COUNTRY_GROUPS.map((g) => (
+              <optgroup key={g.label} label={g.label}>
+                {g.countries.map((c) => (
+                  <option key={c.name} value={c.name}>
+                    {c.name}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+            <option value="Autre">Autre (non listé)</option>
+          </select>
         </Field>
         <Button type="submit" size="lg" full disabled={!dirty || saving}>
           {saving ? "Enregistrement…" : dirty ? "Enregistrer les modifications" : "Aucune modification"}

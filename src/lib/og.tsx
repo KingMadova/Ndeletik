@@ -6,6 +6,11 @@ export const OG_TYPE = "image/png";
 
 const BRAND = { or: "#F9A825", ocre: "#FF6A1A", terra: "#C1440E", creme: "#FFF9F3" };
 
+/** Domaine canonique affiché sur les images de partage (jamais codé en dur). */
+const SITE_HOST = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://ndeletik.com")
+  .replace(/^https?:\/\//, "")
+  .replace(/\/$/, "");
+
 /** Image de partage de la landing (Open Graph / Twitter). */
 export function landingOg() {
   const pills = ["Ma boutique", "Commandes WhatsApp", "Ma chaîne YouTube"];
@@ -29,10 +34,9 @@ export function landingOg() {
             Ta bio, tes liens, tes ventes.
           </div>
           <div style={{ display: "flex", fontSize: 30, marginTop: 28, opacity: 0.92 }}>
-            La page de liens des créateurs africains. Mobile Money, 18 thèmes, statistiques.
+            La page de liens des créateurs africains. Mobile Money, 20 thèmes, statistiques.
           </div>
         </div>
-
         <div
           style={{
             display: "flex",
@@ -167,7 +171,7 @@ export function profileOg({ name, slug, headline, avatar, tokens: t }: ProfileOg
             fontSize: 30,
           }}
         >
-          ndeletik.vercel.app/@{slug}
+          {SITE_HOST}/@{slug}
         </div>
       </div>
     ),
