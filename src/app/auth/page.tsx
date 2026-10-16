@@ -87,127 +87,81 @@ export default function AuthPage() {
     }
   };
 
-  const inputCls = "w-full px-4 py-3 bg-bg border border-line rounded-xl text-ink placeholder:text-muted/70 focus:outline-none focus:border-fractal-ocre transition-colors";
+  const inputCls = "w-full rounded-xl border border-white/10 bg-white/[0.06] px-4 py-3.5 pl-11 text-sm text-white placeholder:text-white/40 outline-none transition focus:border-rose-400/80 focus:bg-white/[0.09] focus:ring-2 focus:ring-rose-400/20";
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-bg relative overflow-hidden">
-      <Link href="/" className="absolute top-6 left-6 flex items-center gap-2 text-sm text-muted hover:text-fractal-terra transition-colors">
-        <ArrowLeft size={16} /> Retour à l'accueil
+    <main className="auth-experience relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-12 text-white">
+      <div aria-hidden className="auth-glow auth-glow-one" />
+      <div aria-hidden className="auth-glow auth-glow-two" />
+      <Link href="/" className="absolute left-5 top-5 z-20 inline-flex items-center gap-2 text-sm text-white/70 transition hover:text-white sm:left-8 sm:top-8">
+        <ArrowLeft size={16} /> Accueil
       </Link>
 
-      <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-fractal-or/20 rounded-full blur-3xl pointer-events-none" />
-
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="w-full max-w-md bg-surface border border-line rounded-3xl p-8 shadow-soft relative z-10"
+      <motion.section
+        initial={{ opacity: 0, y: 18, scale: 0.985 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.45 }}
+        className="auth-panel relative z-10 w-full max-w-md rounded-[30px] border border-white/10 p-6 shadow-2xl sm:p-9"
       >
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-gradient-to-br from-fractal-or via-fractal-ocre to-fractal-terra mb-4 shadow-soft">
-            <Logo className="h-6 w-6 brightness-0 invert" />
+        <div className="mb-8 text-center">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.07] shadow-lg">
+            <Logo className="h-7 w-7" />
           </div>
-          <h1 className="text-3xl font-display font-extrabold text-ink mb-2">
-            {isLogin ? "Bon retour" : "Rejoins Ndeletik"}
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-rose-300">Votre présence, partout</p>
+          <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
+            {isLogin ? "Heureux de vous revoir" : "Créer un compte"}
           </h1>
-          <p className="text-sm text-muted">
-            {isLogin ? "Connecte-toi pour gérer tes liens" : "Crée ta page de liens unique en 2 minutes"}
+          <p className="mx-auto mt-3 max-w-xs text-sm leading-6 text-white/55">
+            {isLogin ? "Connectez-vous pour gérer votre page Ndeletik." : "Créez votre page et rassemblez vos liens en un seul endroit."}
           </p>
         </div>
 
         {error && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            role="alert"
-            className="mb-4 p-3 bg-fractal-terra/10 border border-fractal-terra/30 rounded-xl text-fractal-terra text-sm"
-          >
+          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} role="alert"
+            className="mb-5 rounded-xl border border-rose-400/30 bg-rose-400/10 p-3 text-sm leading-5 text-rose-100">
             {error}
           </motion.div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-3.5">
           {!isLogin && (
-            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>
-              <label htmlFor="username" className="block text-sm font-medium text-ink mb-1">Nom d'utilisateur (optionnel)</label>
-              <input
-                id="username"
-                type="text"
-                autoComplete="username"
-                minLength={3}
-                maxLength={30}
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className={inputCls}
-                placeholder="ex. alvine-yoka"
-              />
-              <p className="text-xs text-muted mt-1">3 à 30 caractères : lettres, chiffres ou tirets. Si laissé vide, un pseudo sera généré.</p>
-            </motion.div>
+            <div className="relative">
+              <label htmlFor="username" className="mb-1.5 block text-xs font-medium text-white/70">Nom d'utilisateur (facultatif)</label>
+              <input id="username" type="text" autoComplete="username" minLength={3} maxLength={30} value={username}
+                onChange={(e) => setUsername(e.target.value)} className={inputCls} placeholder="ex. alvine-yoka" />
+              <p className="mt-1.5 text-xs leading-5 text-white/40">3 à 30 caractères : lettres, chiffres ou tirets.</p>
+            </div>
           )}
-
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-ink mb-1">Email</label>
-            <input
-              id="email"
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className={inputCls}
-              placeholder="ton@email.com"
-            />
+          <div className="relative">
+            <label htmlFor="email" className="mb-1.5 block text-xs font-medium text-white/70">Adresse e-mail</label>
+            <span className="pointer-events-none absolute left-4 top-[42px] text-white/40"><span aria-hidden>✉</span></span>
+            <input id="email" type="email" autoComplete="email" required value={email}
+              onChange={(e) => setEmail(e.target.value)} className={inputCls} placeholder="vous@exemple.com" />
           </div>
-
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-ink mb-1">Mot de passe</label>
-            <input
-              id="password"
-              type="password"
-              autoComplete={isLogin ? "current-password" : "new-password"}
-              minLength={6}
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className={inputCls}
-              placeholder="••••••••"
-            />
+          <div className="relative">
+            <label htmlFor="password" className="mb-1.5 block text-xs font-medium text-white/70">Mot de passe</label>
+            <span className="pointer-events-none absolute left-4 top-[42px] text-white/40"><span aria-hidden>♙</span></span>
+            <input id="password" type="password" autoComplete={isLogin ? "current-password" : "new-password"} minLength={6} required
+              value={password} onChange={(e) => setPassword(e.target.value)} className={inputCls} placeholder="Au moins 6 caractères" />
           </div>
-
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            type="submit"
-            disabled={loading}
-            className="w-full py-3 bg-gradient-to-r from-fractal-or via-fractal-ocre to-fractal-terra hover:opacity-90 text-white font-semibold rounded-xl flex items-center justify-center gap-2 transition disabled:opacity-50"
-          >
-            {loading ? (
-              <>
-                <Loader2 size={18} className="animate-spin" />
-                Chargement...
-              </>
-            ) : (
-              <>
-                {isLogin ? "Se connecter" : "Créer mon compte"}
-                <ArrowRight size={18} />
-              </>
-            )}
+          <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.985 }} type="submit" disabled={loading}
+            className="auth-primary mt-3 flex w-full items-center justify-center gap-2 rounded-full px-5 py-3.5 text-sm font-semibold text-white shadow-lg transition disabled:cursor-wait disabled:opacity-60">
+            {loading ? <><Loader2 size={17} className="animate-spin" /> Chargement...</> : <>{isLogin ? "Continuer avec e-mail" : "Créer mon compte"} <ArrowRight size={17} /></>}
           </motion.button>
         </form>
 
-        <div className="mt-6 text-center">
-          <button
-            type="button"
-            onClick={() => {
-              setIsLogin(!isLogin);
-              setError("");
-            }}
-            className="text-sm text-fractal-terra hover:text-fractal-ocre transition-colors"
-          >
-            {isLogin ? "Pas encore de compte ? S'inscrire" : "Déjà un compte ? Se connecter"}
-          </button>
+        <div className="my-6 flex items-center gap-3 text-[10px] uppercase tracking-[0.16em] text-white/30">
+          <span className="h-px flex-1 bg-white/10" /> Accès sécurisé <span className="h-px flex-1 bg-white/10" />
         </div>
-      </motion.div>
-    </div>
+        <p className="text-center text-sm text-white/55">
+          {isLogin ? "Pas encore de compte ?" : "Vous avez déjà un compte ?"}{" "}
+          <button type="button" onClick={() => { setIsLogin(!isLogin); setError(""); }}
+            className="font-semibold text-rose-300 transition hover:text-rose-200">
+            {isLogin ? "S'inscrire" : "Se connecter"}
+          </button>
+        </p>
+        <p className="mt-7 text-center text-[11px] text-white/30">En continuant, vous acceptez d'utiliser Ndeletik de manière responsable.</p>
+      </motion.section>
+    </main>
   );
 }
