@@ -187,6 +187,7 @@ export function ProfileRenderer({ profile, plan, themeOverride, customOverride, 
     <div
       className="nd-profile"
       style={{ ...themeCssVars(theme, custom), colorScheme: theme.dark ? "dark" : "light" }}
+      data-theme={theme.id}
       data-layout={theme.layout}
       data-btn={theme.buttonStyle}
       data-header={theme.header}

@@ -101,3 +101,225 @@
 .nd-foot { margin-top: 8px; font-size: 0.72rem; color: var(--p-muted); }
 .nd-foot a { text-decoration: underline; text-underline-offset: 3px; }
 @media (prefers-reduced-motion: reduce) { .nd-profile * { transition: none !important; animation: none !important; } }
+
+/* ---------- Thèmes premium dédiés ---------- */
+/* Emerald Fitness : ambiance fitness sombre, contrastes vert citron et cartes compactes. */
+.nd-profile[data-theme="emerald-fitness"] { background: radial-gradient(ellipse at 50% 0%, #19351f 0%, #07110c 48%, #020805 100%); }
+.nd-profile[data-theme="emerald-fitness"] .nd-col { max-width: 460px; padding: 0 18px 30px; gap: 14px; }
+.nd-profile[data-theme="emerald-fitness"] .nd-header { padding-top: 26px; }
+.nd-profile[data-theme="emerald-fitness"] .nd-cover { position: absolute; inset: 0 0 auto; height: 280px; margin: 0; opacity: .68; mask-image: linear-gradient(#000 35%, transparent 100%); }
+.nd-profile[data-theme="emerald-fitness"] .nd-avatar { width: 116px; height: 116px; border: 4px solid #9ad33b; box-shadow: 0 0 0 5px rgb(154 211 59 / 10%); }
+.nd-profile[data-theme="emerald-fitness"] .nd-name { margin-top: 12px; font-size: 1.55rem; }
+.nd-profile[data-theme="emerald-fitness"] .nd-headline { color: #a8d75e; }
+.nd-profile[data-theme="emerald-fitness"] .nd-socials a { background: #102016; border-color: #263d2c; }
+.nd-profile[data-theme="emerald-fitness"] .nd-links { gap: 10px; }
+.nd-profile[data-theme="emerald-fitness"] .nd-link { min-height: 68px; padding: 12px 14px; border-radius: 17px; background: #102016; border-color: #263d2c; }
+.nd-profile[data-theme="emerald-fitness"] .nd-link[data-featured="true"] { background: linear-gradient(100deg,#9ad33b,#3e9a45); color: #fff; }
+.nd-profile[data-theme="emerald-fitness"] .nd-ic { width: 42px; height: 42px; border-radius: 13px; }
+.nd-profile[data-theme="emerald-fitness"] .nd-foot { color: #9cac96; }
+
+/* Champagne Atelier — composition éditoriale ivoire/champagne.
+   Le portrait utilise avatarUrl, le visuel de fond coverUrl et tous les textes/liens viennent du profil. */
+.nd-profile[data-theme="champagne-atelier"] {
+  background: linear-gradient(180deg, #f7f0e9 0%, #f2e7de 100%);
+  color: #604b2c;
+}
+.nd-profile[data-theme="champagne-atelier"] .nd-col {
+  max-width: 500px;
+  padding: 0 20px 24px;
+  gap: 16px;
+}
+.nd-profile[data-theme="champagne-atelier"] .nd-header {
+  width: calc(100% + 40px);
+  margin: 0 -20px;
+  min-height: 320px;
+  padding: 34px 24px 26px;
+  display: grid;
+  grid-template-columns: minmax(118px, 42%) minmax(0, 1fr);
+  grid-template-areas:
+    "portrait name"
+    "portrait headline"
+    "portrait bio"
+    "portrait socials";
+  align-content: center;
+  align-items: center;
+  justify-items: center;
+  column-gap: 20px;
+  row-gap: 9px;
+  text-align: center;
+  overflow: hidden;
+  isolation: isolate;
+}
+.nd-profile[data-theme="champagne-atelier"] .nd-cover {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: .46;
+  background-position: center;
+  -webkit-mask-image: linear-gradient(90deg, #000 0%, rgb(0 0 0 / .65) 52%, transparent 100%);
+  mask-image: linear-gradient(90deg, #000 0%, rgb(0 0 0 / .65) 52%, transparent 100%);
+}
+.nd-profile[data-theme="champagne-atelier"] .nd-avatar {
+  grid-area: portrait;
+  align-self: stretch;
+  width: 100%;
+  height: 252px;
+  max-height: 100%;
+  object-fit: cover;
+  border: 0;
+  border-radius: 48% 48% 12px 12px;
+  box-shadow: 0 8px 24px rgb(88 65 38 / 16%);
+  background: #e8d8c8;
+}
+.nd-profile[data-theme="champagne-atelier"] .nd-avatar-fallback {
+  border: 1px solid #d9c6b0;
+  color: #8c7049;
+  background: linear-gradient(145deg, #f8f0e7, #ddc5ad);
+}
+.nd-profile[data-theme="champagne-atelier"] .nd-name {
+  grid-area: name;
+  align-self: end;
+  margin: 0;
+  max-width: 100%;
+  color: #75583b;
+  font-family: var(--p-font-display), Georgia, serif;
+  font-size: clamp(1.45rem, 5vw, 2rem);
+  font-weight: 600;
+  line-height: 1.02;
+  letter-spacing: -.015em;
+  overflow-wrap: anywhere;
+}
+.nd-profile[data-theme="champagne-atelier"] .nd-verified { color: #9d805b; }
+.nd-profile[data-theme="champagne-atelier"] .nd-headline {
+  grid-area: headline;
+  align-self: start;
+  margin: 0;
+  color: #8c7049;
+  font-size: .62rem;
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+}
+.nd-profile[data-theme="champagne-atelier"] .nd-bio {
+  grid-area: bio;
+  margin: 0;
+  max-width: 29ch;
+  color: #715b3a;
+  font-size: .82rem;
+  line-height: 1.55;
+}
+.nd-profile[data-theme="champagne-atelier"] .nd-socials {
+  grid-area: socials;
+  align-self: start;
+  margin-top: 3px;
+  gap: 10px;
+}
+.nd-profile[data-theme="champagne-atelier"] .nd-socials a {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: rgb(255 252 248 / .88);
+  color: #71572e;
+  border: 1px solid rgb(224 208 190 / .8);
+  box-shadow: 0 3px 9px rgb(80 60 35 / 8%);
+}
+.nd-profile[data-theme="champagne-atelier"] .nd-links {
+  gap: 13px;
+  padding: 0 3px;
+}
+.nd-profile[data-theme="champagne-atelier"] .nd-link {
+  min-height: 94px;
+  padding: 15px 17px;
+  gap: 14px;
+  border-radius: 28px;
+  background: #fbf7f3;
+  border: 1px solid #e5d9ce;
+  box-shadow: 0 8px 18px -10px rgb(88 65 38 / 32%), 0 2px 5px rgb(80 60 35 / 10%);
+  color: #604b2c;
+}
+.nd-profile[data-theme="champagne-atelier"] .nd-link:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px -12px rgb(88 65 38 / 38%), 0 3px 8px rgb(80 60 35 / 10%);
+}
+.nd-profile[data-theme="champagne-atelier"] .nd-ic {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: #fffaf6;
+  color: #8c7049;
+  border: 1px solid #eee2d7;
+}
+.nd-profile[data-theme="champagne-atelier"] .nd-text {
+  gap: 4px;
+}
+.nd-profile[data-theme="champagne-atelier"] .nd-t {
+  color: #604b2c;
+  font-family: var(--p-font-display), Georgia, serif;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.1;
+}
+.nd-profile[data-theme="champagne-atelier"] .nd-s {
+  color: #796344;
+  font-size: .75rem;
+  line-height: 1.35;
+  opacity: 1;
+}
+.nd-profile[data-theme="champagne-atelier"] .nd-chev { color: #8c7049; opacity: 1; }
+.nd-profile[data-theme="champagne-atelier"] .nd-card,
+.nd-profile[data-theme="champagne-atelier"] .nd-news {
+  border-color: #e5d9ce;
+  border-radius: 24px;
+  background: #fbf7f3;
+  box-shadow: 0 6px 16px -12px rgb(88 65 38 / 30%);
+}
+.nd-profile[data-theme="champagne-atelier"] .nd-h2 {
+  color: #604b2c;
+  font-family: var(--p-font-display), Georgia, serif;
+}
+.nd-profile[data-theme="champagne-atelier"] .nd-p { color: #796344; }
+.nd-profile[data-theme="champagne-atelier"] .nd-form input {
+  border-color: #e5d9ce;
+  background: #f4eee8;
+  color: #604b2c;
+}
+.nd-profile[data-theme="champagne-atelier"] .nd-form button {
+  background: #648c48;
+  color: #fff;
+  border-radius: 10px;
+}
+.nd-profile[data-theme="champagne-atelier"] .nd-offer,
+.nd-profile[data-theme="champagne-atelier"] .nd-contact {
+  border-radius: 24px;
+  background: #fbf7f3;
+  border-color: #e5d9ce;
+  color: #604b2c;
+}
+.nd-profile[data-theme="champagne-atelier"] .nd-foot {
+  color: #806744;
+  text-align: center;
+  margin-top: 4px;
+}
+.nd-profile[data-theme="champagne-atelier"] .nd-foot a { text-decoration: none; }
+@media (max-width: 380px) {
+  .nd-profile[data-theme="champagne-atelier"] .nd-col { padding-inline: 14px; }
+  .nd-profile[data-theme="champagne-atelier"] .nd-header {
+    width: calc(100% + 28px);
+    margin-inline: -14px;
+    grid-template-columns: minmax(92px, 36%) minmax(0, 1fr);
+    column-gap: 13px;
+    padding-inline: 15px;
+    min-height: 290px;
+  }
+  .nd-profile[data-theme="champagne-atelier"] .nd-avatar { height: 220px; }
+  .nd-profile[data-theme="champagne-atelier"] .nd-name { font-size: 1.35rem; }
+  .nd-profile[data-theme="champagne-atelier"] .nd-link { padding: 13px 12px; gap: 10px; }
+  .nd-profile[data-theme="champagne-atelier"] .nd-ic { width: 48px; height: 48px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nd-profile[data-theme="champagne-atelier"] .nd-link { transition: none; }
+}
