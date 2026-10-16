@@ -23,7 +23,7 @@ export function Compare() {
           <p className="mt-4 max-w-md text-sm text-muted">
             Les autres outils ignorent ton marché. Ndeletik est construit autour du Mobile Money, du mobile et du français.
           </p>
-          <BtnDark href="/auth" className="mt-6">
+          <BtnDark href="/auth?mode=signup" className="mt-6">
             Commencer
           </BtnDark>
         </div>
