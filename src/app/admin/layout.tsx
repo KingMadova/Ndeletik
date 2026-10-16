@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import { Users, BarChart3, Palette, Settings, LogOut, Sparkles, ChevronRight } from "lucide-react";
+import { Users, BarChart3, Palette, Settings, LogOut, AlertTriangle, RefreshCw } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 
 type Tab = {
@@ -26,25 +26,57 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [user, setUser] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [accessError, setAccessError] = useState("");
 
-  useEffect(() => {
-    (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+  const checkAccess = async () => {
+    setLoading(true);
+    setAccessError("");
+    try {
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw new Error(`Impossible de vérifier la session : ${sessionError.message}`);
       if (!session) {
-        router.replace("/auth");
+        setUser(null);
+        setIsAdmin(false);
+        setAccessError("Vous n'êtes pas connecté. Connectez-vous avec le compte administrateur.");
         return;
       }
       setUser(session.user);
 
-      const { data: p } = await supabase.from("profiles").select("is_admin").eq("user_id", session.user.id).single();
-      if (!p || !p.is_admin) {
-        router.replace("/dashboard");
+      // La page admin utilise accounts.role : le layout doit appliquer la même règle.
+      const { data: account, error: accountError } = await supabase
+        .from("accounts")
+        .select("role")
+        .eq("user_id", session.user.id)
+        .maybeSingle();
+
+      if (accountError) {
+        throw new Error(`Impossible de vérifier votre rôle administrateur : ${accountError.message}`);
+      }
+      if (!account) {
+        setIsAdmin(false);
+        setAccessError("Aucun profil de compte n'a été trouvé pour cette session. Vérifiez que le compte est bien initialisé.");
         return;
       }
+      if (account.role !== "admin") {
+        setIsAdmin(false);
+        setAccessError(`Accès refusé : le rôle associé à ce compte est « ${account.role ?? "non défini"} », alors que « admin » est requis.`);
+        return;
+      }
+
       setIsAdmin(true);
+    } catch (error) {
+      setIsAdmin(false);
+      setAccessError(error instanceof Error ? error.message : "Une erreur inconnue empêche la vérification des droits.");
+    } finally {
       setLoading(false);
-    })();
-  }, [router]);
+    }
+  };
+
+  useEffect(() => {
+    void checkAccess();
+    // checkAccess is intentionally run on mount; retry is triggered by the button below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const logout = async () => {
     await supabase.auth.signOut();
@@ -63,7 +95,40 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   if (!isAdmin) {
-    return null;
+    return (
+      <div className="min-h-screen bg-[#F6F7FB] px-4 py-10 text-slate-900">
+        <div className="mx-auto max-w-xl rounded-3xl border border-slate-200 bg-white p-7 shadow-sm sm:p-9">
+          <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-700">
+            <AlertTriangle size={23} />
+          </div>
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Backoffice Ndeletik</p>
+          <h1 className="mt-2 text-2xl font-bold tracking-tight">Accès au dashboard impossible</h1>
+          <p role="alert" className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
+            {accessError || "Les droits d'accès n'ont pas pu être confirmés."}
+          </p>
+          <p className="mt-4 text-sm leading-6 text-slate-600">
+            Aucun écran d'administration n'a été chargé. Réessayez la vérification ; si le problème persiste, le message ci-dessus indique la catégorie du blocage.
+          </p>
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+            <button
+              type="button"
+              onClick={() => void checkAccess()}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700"
+            >
+              <RefreshCw size={16} /> Réessayer
+            </button>
+            <button
+              type="button"
+              onClick={() => router.push(user ? "/dashboard" : "/auth?mode=login")}
+              className="rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+            >
+              {user ? "Retour au tableau de bord" : "Se connecter"}
+            </button>
+          </div>
+          {user && <p className="mt-5 break-all text-xs text-slate-400">Session détectée : {user.email ?? user.id}</p>}
+        </div>
+      </div>
+    );
   }
 
   const currentTab = TABS.find((t) => pathname === t.href) || TABS[0];
