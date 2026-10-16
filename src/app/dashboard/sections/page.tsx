@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { SectionsEditor } from "@/components/dashboard/BlocksEditor";
 import { toProfile } from "@/lib/profile-mapper";
+import { getCurrentProfileRow } from "@/lib/current-profile";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -12,11 +13,7 @@ export default async function SectionsPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/auth");
 
-  const { data: row } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const row = await getCurrentProfileRow(supabase, user.id);
 
   if (!row) {
     return (

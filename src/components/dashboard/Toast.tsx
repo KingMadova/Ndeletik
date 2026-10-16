@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { AlertCircle, CheckCircle2, Undo2 } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
 
 export type ToastAction = { label: string; onClick: () => void };
 type ToastState = { id: number; msg: string; ok: boolean; action?: ToastAction };
@@ -11,7 +11,31 @@ type ToastState = { id: number; msg: string; ok: boolean; action?: ToastAction }
  * Toasts empilés en bas de l'écran.
  * Signature rétro-compatible : toast(msg) / toast(msg, false) / toast(msg, true, action).
  */
-export function useToast() {
+type ToastFn = (msg: string, ok?: boolean, action?: ToastAction) => void;
+const ToastCtx = createContext<{ toast: ToastFn } | null>(null);
+
+/**
+ * Fournit un seul empilement de toasts à tout le dashboard. Sans fournisseur, useToast()
+ * garde son comportement d'origine (sa propre pile, à afficher via `node`).
+ */
+export function ToastProvider({ children }: { children: ReactNode }) {
+  const { toast, node } = useToastState();
+  const value = useMemo(() => ({ toast }), [toast]);
+  return (
+    <ToastCtx.Provider value={value}>
+      {children}
+      {node}
+    </ToastCtx.Provider>
+  );
+}
+
+export function useToast(): { toast: ToastFn; node: ReactNode } {
+  const ctx = useContext(ToastCtx);
+  const local = useToastState();
+  return ctx ? { toast: ctx.toast, node: null } : local;
+}
+
+function useToastState() {
   const [toasts, setToasts] = useState<ToastState[]>([]);
   const idRef = useRef(0);
 

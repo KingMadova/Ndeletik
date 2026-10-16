@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { ThemeSelector } from "@/components/editor/ThemeSelector";
 import { toProfile } from "@/lib/profile-mapper";
 import { resolveTheme } from "@/lib/themes/registry";
+import { getCurrentProfileRow } from "@/lib/current-profile";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -11,8 +12,8 @@ export default async function ThemesPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/auth");
 
-  const [{ data: row }, { data: planData }] = await Promise.all([
-    supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle(),
+  const [row, { data: planData }] = await Promise.all([
+    getCurrentProfileRow(supabase, user.id),
     supabase.rpc("my_plan"),
   ]);
 

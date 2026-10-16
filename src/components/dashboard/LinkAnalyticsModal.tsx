@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { X, Globe, TrendingUp } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
-import type { LinkItem, Profile } from "@/lib/types";
+import type { DbLink } from "@/lib/dashboard-types";
 import { AnalyticsChart } from "./AnalyticsChart";
 
 type TrafficSource = { name: string; count: number; percentage: number };
@@ -13,8 +13,8 @@ type CountryData = { country: string; count: number };
 type Props = {
   open: boolean;
   onClose: () => void;
-  link: LinkItem | null;
-  profile: Profile;
+  link: DbLink | null;
+  profile: { id: string };
 };
 
 export function LinkAnalyticsModal({ open, onClose, link, profile }: Props) {

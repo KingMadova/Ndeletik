@@ -3,12 +3,11 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { supabase } from "@/lib/supabaseClient";
-import type { Profile } from "@/lib/types";
 
 type ClickData = { date: string; count: number };
 
 type Props = {
-  profile: Profile;
+  profile: { id: string };
   linkId?: string; // Si fourni, filtre sur ce lien
 };
 
@@ -63,7 +62,7 @@ export function AnalyticsChart({ profile, linkId }: Props) {
   const total = data.reduce((s, d) => s + d.count, 0);
 
   return (
-    <div className="bg-soft rounded-2xl p-5 border border-line">
+    <div className="rounded-2xl border border-line bg-surface p-5 shadow-soft">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-semibold">Clics (30 derniers jours)</h3>
         <span className="text-2xl font-display font-bold text-fractal-ocre">{total}</span>

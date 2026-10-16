@@ -106,7 +106,7 @@ export function ShortLinkManager({ userId, plan }: Props) {
     "w-full rounded-xl border border-line bg-bg px-4 py-2.5 text-sm text-ink focus:outline-none focus:border-fractal-ocre transition-colors";
 
   return (
-    <div className="bg-soft rounded-2xl p-5 border border-line">
+    <div className="rounded-2xl border border-line bg-surface p-5 shadow-soft">
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className="text-sm font-semibold flex items-center gap-1.5">

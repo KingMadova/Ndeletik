@@ -1,4 +1,4 @@
-import type { Plan } from "../plans";
+import type { Plan } from "./plans";
 export type { Plan };
 
 /** Les 4 familles de mise en page des liens. */

@@ -2,12 +2,15 @@
 
 import { useState } from "react";
 import { Reorder, useDragControls, AnimatePresence, motion } from "framer-motion";
-import { GripVertical, Settings, Trash2, BarChart3 } from "lucide-react";
-import type { LinkItem as LinkItemType } from "@/lib/types";
+import { BarChart3, GripVertical, Settings2, Trash2 } from "lucide-react";
+import { clsx } from "clsx";
+import type { DbLink } from "@/lib/dashboard-types";
+import { detectIcon } from "@/lib/detect-icon";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { Button } from "@/components/ui/Button";
+import { Field, Switch, inputClass } from "@/components/ui/Field";
 import { getBlockMeta, normalizeUrl } from "./blockMeta";
 import { useToast } from "./Toast";
-import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { detectIcon } from "@/lib/detect-icon";
 
 export const validUrl = (v: string) => {
   try {
@@ -19,11 +22,11 @@ export const validUrl = (v: string) => {
 };
 
 type Props = {
-  link: LinkItemType;
-  onUpdate: (id: string, updates: Partial<LinkItemType>) => void;
+  link: DbLink;
+  onUpdate: (id: string, updates: Partial<DbLink>) => void;
   onDelete: (id: string) => void;
   onDragEnd: () => void;
-  onShowAnalytics?: (link: LinkItemType) => void;
+  onShowAnalytics?: (link: DbLink) => void;
 };
 
 export function LinkItem({ link, onUpdate, onDelete, onDragEnd, onShowAnalytics }: Props) {
@@ -35,25 +38,12 @@ export function LinkItem({ link, onUpdate, onDelete, onDragEnd, onShowAnalytics 
   const [url, setUrl] = useState(link.url);
   const { Icon, bg } = getBlockMeta(link.url);
 
-  const handleUrlChange = (newUrl: string) => {
-    setUrl(newUrl);
-    // Détection auto d'icône
-    if (newUrl && validUrl(newUrl)) {
-      const detected = detectIcon(newUrl);
-      onUpdate(link.id, { icon: detected });
-    }
-  };
-
   const save = () => {
-    if (!title.trim() || !url.trim()) {
-      toast("Titre et URL sont requis", false);
-      return;
-    }
-    if (!validUrl(url)) {
-      toast("URL invalide (ex : https://wa.me/…)", false);
-      return;
-    }
-    onUpdate(link.id, { title: title.trim(), url: normalizeUrl(url) });
+    if (!title.trim() || !url.trim()) return toast("Le titre et l'adresse sont requis", false);
+    if (!validUrl(url)) return toast("Adresse invalide (ex : https://wa.me/…)", false);
+    const clean = normalizeUrl(url);
+    // L'icône est détectée une seule fois, à l'enregistrement (et non à chaque touche).
+    onUpdate(link.id, { title: title.trim(), url: clean, icon: detectIcon(clean) });
     setOpen(false);
   };
 
@@ -64,61 +54,63 @@ export function LinkItem({ link, onUpdate, onDelete, onDragEnd, onShowAnalytics 
       dragControls={controls}
       onDragEnd={onDragEnd}
       whileDrag={{ scale: 1.02, boxShadow: "0 10px 30px rgba(193,68,14,.18)" }}
-      className="rounded-2xl bg-surface border border-line list-none shadow-soft"
+      className="list-none rounded-2xl border border-line bg-surface shadow-soft"
     >
-      <div className="flex items-center gap-3 px-4 py-3">
+      <div className="flex items-center gap-2 px-3 py-3 sm:gap-3 sm:px-4">
         <button
+          type="button"
           onPointerDown={(e) => controls.start(e)}
-          aria-label="Déplacer"
-          className="touch-none cursor-grab active:cursor-grabbing text-line hover:text-muted transition-colors"
+          aria-label="Déplacer ce lien"
+          className="touch-none cursor-grab text-muted/60 transition-colors hover:text-muted active:cursor-grabbing"
         >
-          <GripVertical size={18} />
+          <GripVertical size={18} aria-hidden />
         </button>
 
         <span
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${bg} text-white shadow-soft ${
-            link.enabled ? "" : "opacity-40"
-          }`}
+          className={clsx(
+            "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white shadow-soft",
+            bg,
+            !link.enabled && "opacity-40"
+          )}
         >
-          <Icon size={18} />
+          <Icon size={18} aria-hidden />
         </span>
 
-        <div className={`flex-1 min-w-0 ${link.enabled ? "" : "opacity-50"}`}>
-          <p className="text-sm font-semibold text-ink truncate">{link.title}</p>
-          <p className="text-xs text-muted truncate">
-            {link.clicks} clics · {link.url.replace(/^https?:\/\//, "")}
+        <div className={clsx("min-w-0 flex-1", !link.enabled && "opacity-60")}>
+          <p className="truncate text-sm font-semibold text-ink">{link.title}</p>
+          <p className="truncate text-xs text-muted">
+            {link.enabled ? "" : "Masqué · "}
+            {link.url.replace(/^https?:\/\//, "")}
           </p>
         </div>
 
-        {!link.enabled && <span className="text-xs text-muted bg-soft px-2 py-1 rounded-full">Brouillon</span>}
-
-        {onShowAnalytics && (
-          <button
-            onClick={() => onShowAnalytics(link)}
-            aria-label="Voir les statistiques"
-            className="p-2 rounded-lg hover:bg-soft text-muted hover:text-fractal-ocre transition-colors"
-          >
-            <BarChart3 size={16} />
-          </button>
-        )}
-
         <button
-          onClick={() => setOpen((o) => !o)}
-          aria-label="Paramètres"
-          aria-expanded={open}
-          className={`p-2 rounded-lg transition-colors ${
-            open ? "bg-fractal-ocre/10 text-fractal-ocre" : "hover:bg-soft text-muted"
-          }`}
+          type="button"
+          onClick={() => onShowAnalytics?.(link)}
+          disabled={!onShowAnalytics}
+          title="Voir les statistiques de ce lien"
+          className="hidden shrink-0 items-center gap-1.5 rounded-full bg-soft px-2.5 py-1 text-xs font-medium text-muted transition-colors hover:text-fractal-terra sm:inline-flex"
         >
-          <Settings size={16} />
+          <BarChart3 size={13} aria-hidden /> {link.clicks} clic{link.clicks > 1 ? "s" : ""}
         </button>
 
+        <Switch
+          checked={link.enabled}
+          onChange={(v) => onUpdate(link.id, { enabled: v })}
+          label={link.enabled ? "Masquer ce lien de ma page" : "Publier ce lien sur ma page"}
+        />
+
         <button
-          onClick={() => setConfirming(true)}
-          aria-label="Supprimer"
-          className="p-2 rounded-lg hover:bg-red-50 text-muted hover:text-red-600 transition-colors"
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-label="Modifier ce lien"
+          aria-expanded={open}
+          className={clsx(
+            "rounded-full p-2 transition-colors",
+            open ? "bg-fractal-ocre/10 text-fractal-terra" : "text-muted hover:bg-soft hover:text-ink"
+          )}
         >
-          <Trash2 size={16} />
+          <Settings2 size={16} aria-hidden />
         </button>
       </div>
 
@@ -130,39 +122,32 @@ export function LinkItem({ link, onUpdate, onDelete, onDragEnd, onShowAnalytics 
             exit={{ height: 0, opacity: 0 }}
             className="overflow-hidden"
           >
-            <div className="px-4 pb-4 pt-3 grid gap-3 border-t border-line bg-soft/30">
-              <label className="block">
-                <span className="text-xs text-muted mb-1.5 block">Titre</span>
-                <input
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="w-full rounded-xl border border-line bg-bg px-4 py-2.5 text-sm text-ink focus:outline-none focus:border-fractal-ocre transition-colors"
-                />
-              </label>
-              <label className="block">
-                <span className="text-xs text-muted mb-1.5 block">URL</span>
+            <div className="grid gap-3 border-t border-line bg-soft/40 px-4 pb-4 pt-4">
+              <Field label="Titre">
+                <input value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} />
+              </Field>
+              <Field label="Adresse du lien">
                 <input
                   value={url}
-                  onChange={(e) => handleUrlChange(e.target.value)}
-                  className="w-full rounded-xl border border-line bg-bg px-4 py-2.5 text-sm text-ink focus:outline-none focus:border-fractal-ocre transition-colors"
+                  onChange={(e) => setUrl(e.target.value)}
+                  inputMode="url"
+                  className={inputClass}
                 />
-              </label>
-              <div className="flex items-center justify-between pt-2">
-                <label className="flex items-center gap-2 text-sm text-ink cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={link.enabled}
-                    onChange={(e) => onUpdate(link.id, { enabled: e.target.checked })}
-                    className="h-4 w-4 accent-fractal-ocre rounded"
-                  />
-                  Publié
-                </label>
-                <button
-                  onClick={save}
-                  className="rounded-xl bg-fractal-ocre hover:bg-fractal-terra text-white text-sm font-semibold px-5 py-2.5 transition-colors"
-                >
-                  Enregistrer
-                </button>
+              </Field>
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <Button variant="danger" size="sm" onClick={() => setConfirming(true)}>
+                  <Trash2 size={14} aria-hidden /> Supprimer
+                </Button>
+                <div className="ml-auto flex items-center gap-2">
+                  {onShowAnalytics && (
+                    <Button variant="secondary" size="sm" onClick={() => onShowAnalytics(link)} className="sm:hidden">
+                      <BarChart3 size={14} aria-hidden /> Statistiques
+                    </Button>
+                  )}
+                  <Button size="sm" onClick={save}>
+                    Enregistrer
+                  </Button>
+                </div>
               </div>
             </div>
           </motion.div>
@@ -171,8 +156,8 @@ export function LinkItem({ link, onUpdate, onDelete, onDragEnd, onShowAnalytics 
 
       <ConfirmDialog
         open={confirming}
-        title="Supprimer ce bloc ?"
-        message={`« ${link.title} » sera définitivement retiré de ta page.`}
+        title="Supprimer ce lien ?"
+        message={`« ${link.title} » sera retiré de ta page. Tu pourras annuler juste après.`}
         confirmLabel="Supprimer"
         danger
         onConfirm={() => {
