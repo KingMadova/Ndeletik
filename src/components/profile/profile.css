@@ -101,3 +101,38 @@
 .nd-foot { margin-top: 8px; font-size: 0.72rem; color: var(--p-muted); }
 .nd-foot a { text-decoration: underline; text-underline-offset: 3px; }
 @media (prefers-reduced-motion: reduce) { .nd-profile * { transition: none !important; animation: none !important; } }
+
+/* ---------- Thèmes premium dédiés ---------- */
+/* Emerald Fitness : ambiance fitness sombre, contrastes vert citron et cartes compactes. */
+.nd-profile[data-theme="emerald-fitness"] { background: radial-gradient(ellipse at 50% 0%, #19351f 0%, #07110c 48%, #020805 100%); }
+.nd-profile[data-theme="emerald-fitness"] .nd-col { max-width: 460px; padding: 0 18px 30px; gap: 14px; }
+.nd-profile[data-theme="emerald-fitness"] .nd-header { padding-top: 26px; }
+.nd-profile[data-theme="emerald-fitness"] .nd-cover { position: absolute; inset: 0 0 auto; height: 280px; margin: 0; opacity: .68; mask-image: linear-gradient(#000 35%, transparent 100%); }
+.nd-profile[data-theme="emerald-fitness"] .nd-avatar { width: 116px; height: 116px; border: 4px solid #9ad33b; box-shadow: 0 0 0 5px rgb(154 211 59 / 10%); }
+.nd-profile[data-theme="emerald-fitness"] .nd-name { margin-top: 12px; font-size: 1.55rem; }
+.nd-profile[data-theme="emerald-fitness"] .nd-headline { color: #a8d75e; }
+.nd-profile[data-theme="emerald-fitness"] .nd-socials a { background: #102016; border-color: #263d2c; }
+.nd-profile[data-theme="emerald-fitness"] .nd-links { gap: 10px; }
+.nd-profile[data-theme="emerald-fitness"] .nd-link { min-height: 68px; padding: 12px 14px; border-radius: 17px; background: #102016; border-color: #263d2c; }
+.nd-profile[data-theme="emerald-fitness"] .nd-link[data-featured="true"] { background: linear-gradient(100deg,#9ad33b,#3e9a45); color: #fff; }
+.nd-profile[data-theme="emerald-fitness"] .nd-ic { width: 42px; height: 42px; border-radius: 13px; }
+.nd-profile[data-theme="emerald-fitness"] .nd-foot { color: #9cac96; }
+
+/* Champagne Atelier : composition beauté premium, ivoire, champagne et typographie éditoriale. */
+.nd-profile[data-theme="champagne-atelier"] { background: linear-gradient(180deg,#f7f0e9 0%,#f2e7de 100%); }
+.nd-profile[data-theme="champagne-atelier"] .nd-col { max-width: 460px; padding: 0 20px 28px; gap: 15px; }
+.nd-profile[data-theme="champagne-atelier"] .nd-header { padding-top: 0; overflow: hidden; }
+.nd-profile[data-theme="champagne-atelier"] .nd-cover { height: 245px; margin-bottom: -74px; opacity: .8; mask-image: linear-gradient(#000 55%, transparent 100%); }
+.nd-profile[data-theme="champagne-atelier"] .nd-avatar { width: 116px; height: 116px; border: 4px solid #fbf7f3; box-shadow: 0 4px 18px rgb(88 65 38 / 18%); }
+.nd-profile[data-theme="champagne-atelier"] .nd-name { font-size: 1.75rem; font-weight: 600; letter-spacing: .01em; }
+.nd-profile[data-theme="champagne-atelier"] .nd-headline { color: #8c7049; text-transform: uppercase; letter-spacing: .22em; font-size: .65rem; }
+.nd-profile[data-theme="champagne-atelier"] .nd-bio { color: #715b3a; max-width: 32ch; }
+.nd-profile[data-theme="champagne-atelier"] .nd-socials { gap: 12px; }
+.nd-profile[data-theme="champagne-atelier"] .nd-socials a { width: 40px; height: 40px; border-radius: 10px; background: #fbf7f3; color: #71572e; box-shadow: 0 2px 8px rgb(80 60 35 / 10%); }
+.nd-profile[data-theme="champagne-atelier"] .nd-links { gap: 13px; }
+.nd-profile[data-theme="champagne-atelier"] .nd-link { min-height: 94px; padding: 15px 17px; border-radius: 28px; background: #fbf7f3; border: 1px solid #e5d9ce; box-shadow: 0 8px 18px -10px rgb(88 65 38 / 32%), 0 2px 5px rgb(80 60 35 / 10%); gap: 14px; }
+.nd-profile[data-theme="champagne-atelier"] .nd-ic { width: 58px; height: 58px; border-radius: 50%; background: #fffaf6; color: #8c7049; border: 1px solid #eee2d7; }
+.nd-profile[data-theme="champagne-atelier"] .nd-t { font-size: .93rem; font-weight: 600; }
+.nd-profile[data-theme="champagne-atelier"] .nd-s { color: #796344; opacity: 1; }
+.nd-profile[data-theme="champagne-atelier"] .nd-chev { color: #8c7049; }
+.nd-profile[data-theme="champagne-atelier"] .nd-foot { color: #806744; }
