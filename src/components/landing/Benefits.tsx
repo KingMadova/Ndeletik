@@ -55,7 +55,7 @@ export function Benefits() {
               Vends tes formations, tes produits et tes services depuis ta page, sans site web.
             </p>
           </div>
-          <Link href="/auth" className="mt-8 inline-flex w-fit rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-bg">
+          <Link href="/auth?mode=signup" className="mt-8 inline-flex w-fit rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-bg">
             Créer ma page
           </Link>
         </div>

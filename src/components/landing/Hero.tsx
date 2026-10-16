@@ -1,5 +1,9 @@
 "use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import { motion } from "framer-motion";
+import { Check, Loader2, X } from "lucide-react";
 import type { IconType } from "react-icons";
 import {
   FaFacebookF,
@@ -19,7 +23,6 @@ const wordVariants = {
 };
 
 type Platform = { name: string; Icon: IconType; bg: string };
-
 // Couleurs officielles des apps.
 const platforms: Platform[] = [
   { name: "Facebook", Icon: FaFacebookF, bg: "#1877F2" },
@@ -37,12 +40,10 @@ const platforms: Platform[] = [
 ];
 
 const R = 36; // rayon de l'anneau, en % de la scène
-
 const nodes = platforms.map((p, i) => {
   const a = ((i * 360) / platforms.length - 90 + 22.5) * (Math.PI / 180);
   const x = 50 + R * Math.cos(a);
   const y = 50 + R * Math.sin(a);
-  // Courbe légère : point de contrôle décalé perpendiculairement.
   const mx = (50 + x) / 2;
   const my = (50 + y) / 2;
   const nx = -Math.sin(a);
@@ -54,7 +55,6 @@ const nodes = platforms.map((p, i) => {
 
 function Scene() {
   return (
-    // Le carré s'adapte à la hauteur ET à la largeur disponibles : rien n'est coupé.
     <div
       className="flex h-full min-h-0 w-full items-center justify-center"
       style={{ containerType: "size" }}
@@ -70,7 +70,6 @@ function Scene() {
           aria-hidden
           className="absolute inset-[8%] rounded-full bg-gradient-to-br from-fractal-or/25 via-fractal-ocre/15 to-fractal-terra/20 blur-2xl"
         />
-
         <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full" aria-hidden>
           <defs>
             <linearGradient id="hero-line" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="100" y2="100">
@@ -79,38 +78,16 @@ function Scene() {
               <stop offset="1" stopColor="#C1440E" />
             </linearGradient>
           </defs>
-          <circle
-            cx="50"
-            cy="50"
-            r={R}
-            fill="none"
-            stroke="rgb(var(--line))"
-            strokeWidth="0.3"
-            strokeDasharray="1 1.6"
-          />
+          <circle cx="50" cy="50" r={R} fill="none" stroke="rgb(var(--line))" strokeWidth="0.3" strokeDasharray="1 1.6" />
           {nodes.map((n, i) => (
             <g key={n.name}>
-              <path
-                d={n.d}
-                fill="none"
-                stroke="url(#hero-line)"
-                strokeWidth="0.7"
-                strokeLinecap="round"
-                opacity="0.55"
-              />
+              <path d={n.d} fill="none" stroke="url(#hero-line)" strokeWidth="0.7" strokeLinecap="round" opacity="0.55" />
               <circle r="1.3" fill="#FF6A1A">
-                <animateMotion
-                  dur="3.2s"
-                  begin={`${(i * 0.4).toFixed(1)}s`}
-                  repeatCount="indefinite"
-                  path={n.d}
-                />
+                <animateMotion dur="3.2s" begin={`${(i * 0.4).toFixed(1)}s`} repeatCount="indefinite" path={n.d} />
               </circle>
             </g>
           ))}
         </svg>
-
-        {/* Logo central Ndeletik */}
         <div
           className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
           style={{ width: "26%", height: "26%" }}
@@ -122,8 +99,6 @@ function Scene() {
             <Logo className="h-[62%] w-[62%] brightness-0 invert" />
           </div>
         </div>
-
-        {/* Icônes d'apps officielles */}
         {nodes.map((n, i) => (
           <motion.div
             key={n.name}
@@ -153,6 +128,75 @@ function Scene() {
   );
 }
 
+/** Champ « réserve ton nom » : vérifie la disponibilité en direct et pré-remplit l'inscription. */
+function ReserveName() {
+  const [slug, setSlug] = useState("");
+  const [state, setState] = useState<"idle" | "checking" | "ok" | "taken" | "invalid">("idle");
+  const clean = slug.toLowerCase().replace(/[^a-z0-9_.-]/g, "");
+
+  useEffect(() => {
+    if (clean.length < 3) {
+      setState("idle");
+      return;
+    }
+    setState("checking");
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/slug-check?slug=${encodeURIComponent(clean)}`);
+        const data = await res.json();
+        setState(data.available ? "ok" : data.reason === "invalid" ? "invalid" : "taken");
+      } catch {
+        setState("invalid");
+      }
+    }, 350);
+    return () => clearTimeout(t);
+  }, [clean]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.8 }}
+      className="mx-auto mt-5 w-full max-w-md md:mx-0"
+    >
+      <div className="flex items-center gap-2 rounded-full border border-line bg-surface p-1.5 pl-4 shadow-soft">
+        <span className="shrink-0 text-sm text-muted">@</span>
+        <input
+          value={slug}
+          onChange={(e) => setSlug(e.target.value.toLowerCase())}
+          placeholder="ton-nom"
+          aria-label="Réserve ton nom d'utilisateur"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          className="min-w-0 flex-1 bg-transparent text-sm text-ink placeholder:text-muted/60 focus:outline-none"
+        />
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center" aria-live="polite">
+          {state === "checking" && <Loader2 size={15} className="animate-spin text-muted" />}
+          {state === "ok" && <Check size={15} className="text-emerald-600" />}
+          {state === "taken" && <X size={15} className="text-fractal-terra" />}
+        </span>
+        <Link
+          href={`/auth?slug=${encodeURIComponent(clean)}`}
+          aria-disabled={state !== "ok"}
+          className={`shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition ${
+            state === "ok"
+              ? "bg-fractal-ocre text-white hover:bg-fractal-terra"
+              : "pointer-events-none bg-soft text-muted"
+          }`}
+        >
+          Réserver
+        </Link>
+      </div>
+      <p className="mt-1.5 min-h-4 px-2 text-[11px] text-muted" aria-live="polite">
+        {state === "ok" && `ndeletik.com/@${clean} est libre !`}
+        {state === "taken" && "Ce nom est déjà pris, essaie une variante."}
+        {state === "invalid" && "3 à 30 caractères : lettres, chiffres, tirets, points."}
+      </p>
+    </motion.div>
+  );
+}
+
 export function Hero() {
   return (
     <section
@@ -167,26 +211,21 @@ export function Hero() {
               <span className={`h-2 w-2 rounded-full ${grad}`} /> Conçu pour les créateurs africains
             </Badge>
           </motion.div>
-
           <motion.h1
             className="font-display text-[2.25rem] font-extrabold leading-[1.04] sm:text-5xl lg:text-6xl xl:text-7xl"
             initial="hidden"
             animate="visible"
             transition={{ staggerChildren: 0.1 }}
           >
-            <span className="block">
+            <span className="sr-only">Tes liens, ton héritage.</span>
+            <span className="block" aria-hidden>
               {["Tes", "liens,"].map((w) => (
-                <motion.span
-                  key={w}
-                  variants={wordVariants}
-                  transition={{ duration: 0.5 }}
-                  className="mr-3 inline-block"
-                >
+                <motion.span key={w} variants={wordVariants} transition={{ duration: 0.5 }} className="mr-3 inline-block">
                   {w}
                 </motion.span>
               ))}
             </span>
-            <span className="block">
+            <span className="block" aria-hidden>
               <motion.span variants={wordVariants} transition={{ duration: 0.5 }} className="mr-1 inline-block">
                 ton
               </motion.span>
@@ -198,7 +237,6 @@ export function Hero() {
               </motion.span>
             </span>
           </motion.h1>
-
           <motion.p
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
@@ -207,7 +245,6 @@ export function Hero() {
           >
             Une seule page pour tous tes réseaux, ton design et tes paiements Mobile Money.
           </motion.p>
-
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
@@ -218,8 +255,8 @@ export function Hero() {
               Créer ma page gratuite
             </BtnDark>
           </motion.div>
+          <ReserveName />
         </div>
-
         {/* Colonne scène : anneaux de plateformes */}
         <div className="mt-2 min-h-0 flex-1 md:mt-0 md:h-full md:max-h-[calc(100svh-8rem)]">
           <Scene />

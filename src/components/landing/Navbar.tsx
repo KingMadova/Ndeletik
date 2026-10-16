@@ -34,13 +34,19 @@ export function Navbar() {
         </ul>
 
         <div className="flex items-center gap-2">
-          <BtnDark href="/auth" className="hidden sm:inline-flex">
+          <Link
+            href="/auth?mode=login"
+            className="hidden rounded-full px-4 py-2.5 text-sm font-medium text-ink transition hover:bg-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fractal-ocre sm:inline-flex"
+          >
+            Connexion
+          </Link>
+          <BtnDark href="/auth?mode=signup" className="hidden sm:inline-flex">
             Créer ma page
           </BtnDark>
           {/* Burger mobile */}
           <button
             onClick={() => setOpen(!open)}
-            aria-label="Menu"
+            aria-label={open ? "Fermer le menu" : "Ouvrir le menu"}
             aria-expanded={open}
             className="p-2 rounded-full hover:bg-soft text-ink md:hidden"
           >
@@ -65,9 +71,18 @@ export function Navbar() {
               </li>
             ))}
           </ul>
-          <BtnDark href="/auth" className="mt-3 w-full sm:hidden">
-            Créer ma page
-          </BtnDark>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <Link
+              href="/auth?mode=login"
+              onClick={() => setOpen(false)}
+              className="inline-flex items-center justify-center rounded-full border border-line px-4 py-3 text-sm font-medium text-ink transition hover:bg-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fractal-ocre"
+            >
+              Connexion
+            </Link>
+            <BtnDark href="/auth?mode=signup" className="w-full">
+              Créer ma page
+            </BtnDark>
+          </div>
         </div>
       )}
     </header>

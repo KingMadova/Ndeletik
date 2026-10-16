@@ -14,7 +14,7 @@ const plans = {
     m: 3000,
     feats: [
       "Liens illimités",
-      "8 thèmes Pro + couleurs personnalisables",
+      "7 thèmes Pro + couleurs personnalisables",
       "Paiement Mobile Money",
       "Statistiques détaillées",
       "Sans badge Ndeletik",
@@ -24,7 +24,7 @@ const plans = {
     m: 9000,
     feats: [
       "Tout le plan Pro",
-      "8 thèmes Business (bannières, couvertures)",
+      "7 thèmes Business (bannières, couvertures)",
       "Domaine personnalisé",
       "Export des données",
       "Support prioritaire",
@@ -115,7 +115,7 @@ export function Pricing() {
               </span>
               <span className="ml-1 text-sm text-muted">FCFA / mois</span>
             </div>
-            <Link href="/auth" className="rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-bg">
+            <Link href="/auth?mode=signup" className="rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-bg">
               Choisir {plan}
             </Link>
           </div>

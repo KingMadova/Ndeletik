@@ -23,7 +23,6 @@ export type ProfilePatch = Partial<{
   bio: string | undefined;
   avatarUrl: string | undefined;
   coverUrl: string | undefined;
-  country: string | undefined;
 }>;
 
 const COLUMNS: Record<keyof ProfilePatch, string> = {
@@ -33,7 +32,6 @@ const COLUMNS: Record<keyof ProfilePatch, string> = {
   bio: "bio",
   avatarUrl: "avatar_url",
   coverUrl: "cover_url",
-  country: "country",
 };
 
 type Ctx = {
@@ -90,6 +88,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
 function Inner({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { toast } = useToast();
+
   const [userId, setUserId] = useState<string | null>(null);
   const [plan, setPlan] = useState<Plan>("free");
   const [profiles, setProfiles] = useState<DbProfile[]>([]);
@@ -108,12 +107,14 @@ function Inner({ children }: { children: ReactNode }) {
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return router.replace("/auth");
+
       const [{ data: owned }, { data: myPlan }] = await Promise.all([
         supabase.from("profiles").select("*").eq("user_id", session.user.id),
         supabase.rpc("my_plan"),
       ]);
       const list = ((owned ?? []) as DbProfile[]).slice().sort(byCreated);
       if (list.length === 0) return router.replace("/onboarding");
+
       const remembered = readCookie();
       setUserId(session.user.id);
       setPlan(["free", "pro", "business"].includes(myPlan) ? (myPlan as Plan) : "free");
@@ -149,7 +150,6 @@ function Inner({ children }: { children: ReactNode }) {
   );
 
   const ready = booted && !!row && row.id === profileId;
-
   const publicUrl = useMemo(
     () => (typeof window !== "undefined" && row ? `${window.location.origin}/@${row.slug}` : ""),
     [row]
@@ -273,6 +273,7 @@ function Inner({ children }: { children: ReactNode }) {
       update[COLUMNS[k]] = v ? v : null;
     });
     if (Object.keys(update).length === 0) return true;
+
     const prev = row;
     setRow({ ...row, ...update });
     const { error } = await supabase.from("profiles").update(update).eq("id", row.id);

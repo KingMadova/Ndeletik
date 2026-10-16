@@ -64,7 +64,7 @@ export default function DemoPage() {
         <footer className="mt-16 text-center">
           <p className="text-sm text-muted mb-4">Cette page pourrait être la tienne en 5 minutes.</p>
           <Link
-            href="/auth"
+            href="/auth?mode=signup"
             className="inline-flex items-center justify-center rounded-full bg-ink px-7 py-3.5 text-sm font-medium text-bg shadow-lg transition hover:opacity-90"
           >
             Créer ma page gratuite

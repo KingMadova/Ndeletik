@@ -3,12 +3,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight, ArrowLeft, Loader2, SkipForward, Copy, Check } from "lucide-react";
+import { ArrowRight, ArrowLeft, Loader2, SkipForward } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { FREE_THEMES } from "@/lib/themes/free";
 import { LinkTemplates } from "@/components/dashboard/LinkTemplates";
-import { detectIcon } from "@/lib/detect-icon";
-import { normalizeUrl } from "@/components/dashboard/blockMeta";
 
 const STEPS = ["Profil", "Premier lien", "Thème", "Prêt !"] as const;
 type Step = (typeof STEPS)[number];
@@ -18,8 +16,6 @@ export default function OnboardingPage() {
   const [step, setStep] = useState<Step>("Profil");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [slug, setSlug] = useState("");
-  const [copied, setCopied] = useState(false);
 
   // Étape 1 : Profil
   const [displayName, setDisplayName] = useState("");
@@ -43,18 +39,6 @@ export default function OnboardingPage() {
     if (idx > 0) setStep(STEPS[idx - 1]);
   };
 
-  const publicUrl = typeof window !== "undefined" && slug ? `${window.location.origin}/@${slug}` : "";
-
-  const copyUrl = async () => {
-    try {
-      await navigator.clipboard.writeText(publicUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      /* copie impossible */
-    }
-  };
-
   const complete = async (skip = false) => {
     setLoading(true);
     setError("");
@@ -65,13 +49,13 @@ export default function OnboardingPage() {
 
       const { data: profile } = await supabase
         .from("profiles")
-        .select("id, slug")
+        .select("id")
         .eq("user_id", user.id)
         .single();
 
       if (!profile) throw new Error("Profil introuvable");
-      setSlug(profile.slug);
 
+      // Mise à jour du profil
       if (!skip) {
         const { error: profileError } = await supabase
           .from("profiles")
@@ -86,18 +70,18 @@ export default function OnboardingPage() {
 
         if (profileError) throw profileError;
 
+        // Création du premier lien
         if (linkTitle && linkUrl) {
-          const clean = normalizeUrl(linkUrl);
           const { error: linkError } = await supabase.from("links").insert({
             profile_id: profile.id,
             title: linkTitle,
-            url: clean,
-            icon: detectIcon(clean),
+            url: linkUrl,
             position: 0,
           });
           if (linkError) throw linkError;
         }
       } else {
+        // Skip : juste marquer comme complété
         const { error: skipError } = await supabase
           .from("profiles")
           .update({ onboarding_completed: true })
@@ -331,16 +315,7 @@ export default function OnboardingPage() {
 
               <div className="mx-auto mb-6 max-w-xs rounded-2xl border border-line bg-soft p-4">
                 <p className="text-xs text-muted mb-1">Ton lien public</p>
-                <p className="text-sm font-semibold text-fractal-terra truncate">{publicUrl || "…"}</p>
-                <button
-                  type="button"
-                  onClick={copyUrl}
-                  disabled={!publicUrl}
-                  className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1.5 text-xs font-medium text-muted hover:border-fractal-ocre hover:text-fractal-terra transition-colors disabled:opacity-40"
-                >
-                  {copied ? <Check size={13} /> : <Copy size={13} />}
-                  {copied ? "Copié !" : "Copier le lien"}
-                </button>
+                <p className="text-sm font-semibold text-fractal-terra truncate">ndeletik.com/@alvine</p>
               </div>
 
               <div className="flex gap-3">
