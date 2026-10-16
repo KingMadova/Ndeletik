@@ -39,7 +39,7 @@ export function Navbar() {
           >
             Connexion
           </Link>
-          <BtnDark href="/auth" className="hidden sm:inline-flex">
+          <BtnDark href="/auth?mode=signup" className="hidden sm:inline-flex">
             Créer ma page
           </BtnDark>
           <button
@@ -76,7 +76,7 @@ export function Navbar() {
             >
               Connexion
             </Link>
-            <BtnDark href="/auth" className="w-full">
+            <BtnDark href="/auth?mode=signup" className="w-full">
               Créer ma page
             </BtnDark>
           </div>
