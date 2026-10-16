@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import { Users, BarChart3, Palette, Settings, LogOut } from "lucide-react";
+import { Users, BarChart3, Palette, Settings, LogOut, Sparkles, ChevronRight } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 
 type Tab = {
@@ -69,10 +69,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const currentTab = TABS.find((t) => pathname === t.href) || TABS[0];
 
   return (
-    <div className="min-h-screen bg-bg text-ink">
+    <div className="min-h-screen bg-[#F6F7FB] text-slate-900">
       {/* Header */}
-      <header className="sticky top-0 z-40 border-b border-line bg-surface/95 backdrop-blur">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
+      <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur-xl">
+        <div className="mx-auto max-w-[1500px] px-4 sm:px-6 py-3.5 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-full bg-fractal-terra text-white flex items-center justify-center font-bold text-sm">
               A
@@ -86,14 +86,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <button
             onClick={logout}
             aria-label="Déconnexion"
-            className="p-2 rounded-lg text-muted hover:bg-soft hover:text-fractal-terra transition-colors"
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 transition-colors"
           >
-            <LogOut size={18} />
+            <LogOut size={16} /><span className="hidden sm:inline">Déconnexion</span>
           </button>
         </div>
       </header>
 
-      <div className="mx-auto max-w-7xl sm:px-6 lg:grid lg:grid-cols-[240px_1fr] lg:gap-6">
+      <div className="mx-auto max-w-[1500px] sm:px-6 lg:grid lg:grid-cols-[250px_minmax(0,1fr)] lg:gap-8">
         {/* Menu latéral (desktop) */}
         <aside className="hidden lg:block">
           <nav className="sticky top-20 py-6 space-y-1">
@@ -116,11 +116,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </aside>
 
         {/* Contenu principal */}
-        <main className="pb-20 lg:pb-6">{children}</main>
+        <main className="min-w-0 px-4 py-6 sm:px-0 lg:py-8 pb-24 lg:pb-8">{children}</main>
       </div>
 
       {/* Barre d'onglets en bas (mobile) */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-line bg-surface/95 backdrop-blur">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200 bg-white/95 backdrop-blur-xl shadow-[0_-8px_30px_rgba(15,23,42,0.06)]">
         <div className="flex justify-around py-2">
           {TABS.map((tab) => {
             const isActive = pathname === tab.href;
@@ -132,7 +132,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   isActive ? "text-fractal-terra" : "text-muted"
                 }`}
               >
-                <tab.icon size={20} />
+                <tab.icon size={19} />
                 {tab.label}
               </Link>
             );
