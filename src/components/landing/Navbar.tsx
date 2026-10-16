@@ -22,7 +22,6 @@ export function Navbar() {
           <Wordmark />
         </Link>
 
-        {/* Liens desktop */}
         <ul className="hidden items-center gap-6 text-sm text-muted md:flex">
           {links.map((l) => (
             <li key={l.href}>
@@ -34,22 +33,26 @@ export function Navbar() {
         </ul>
 
         <div className="flex items-center gap-2">
+          <Link
+            href="/auth?mode=login"
+            className="hidden rounded-full px-4 py-2.5 text-sm font-medium text-ink transition hover:bg-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fractal-ocre sm:inline-flex"
+          >
+            Connexion
+          </Link>
           <BtnDark href="/auth" className="hidden sm:inline-flex">
             Créer ma page
           </BtnDark>
-          {/* Burger mobile */}
           <button
             onClick={() => setOpen(!open)}
-            aria-label="Menu"
+            aria-label={open ? "Fermer le menu" : "Ouvrir le menu"}
             aria-expanded={open}
-            className="p-2 rounded-full hover:bg-soft text-ink md:hidden"
+            className="rounded-full p-2 text-ink hover:bg-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fractal-ocre md:hidden"
           >
             {open ? <X size={18} /> : <Menu size={18} />}
           </button>
         </div>
       </nav>
 
-      {/* Panneau mobile */}
       {open && (
         <div className="absolute top-full mt-2 w-full max-w-4xl rounded-2xl border border-line bg-surface p-4 shadow-soft md:hidden">
           <ul className="space-y-1">
@@ -65,9 +68,18 @@ export function Navbar() {
               </li>
             ))}
           </ul>
-          <BtnDark href="/auth" className="mt-3 w-full sm:hidden">
-            Créer ma page
-          </BtnDark>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <Link
+              href="/auth?mode=login"
+              onClick={() => setOpen(false)}
+              className="inline-flex items-center justify-center rounded-full border border-line px-4 py-3 text-sm font-medium text-ink transition hover:bg-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fractal-ocre"
+            >
+              Connexion
+            </Link>
+            <BtnDark href="/auth" className="w-full">
+              Créer ma page
+            </BtnDark>
+          </div>
         </div>
       )}
     </header>
