@@ -3,7 +3,7 @@ import { Mail, MessageCircle, ArrowLeft, Clock, HelpCircle } from "lucide-react"
 import { Wordmark } from "@/components/landing/ui";
 
 export const metadata = {
-  title: "Contact — Ndeletik",
+  title: "Contact",
   description: "Contacte l'équipe Ndeletik par email ou WhatsApp. Réponse sous 48h ouvrées.",
 };
 

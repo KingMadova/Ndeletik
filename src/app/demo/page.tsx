@@ -1,21 +1,12 @@
 import Link from "next/link";
-import { ExternalLink, Sparkles, ArrowLeft } from "lucide-react";
-import { FaWhatsapp, FaInstagram, FaYoutube, FaTiktok } from "react-icons/fa6";
-import { SiShopify } from "react-icons/si";
+import { Sparkles, ArrowLeft } from "lucide-react";
 import { Wordmark } from "@/components/landing/ui";
+import { DemoLinks } from "@/components/demo/DemoLinks";
 
 export const metadata = {
-  title: "Page exemple — Ndeletik",
+  title: "Page exemple",
   description: "Découvre à quoi ressemble une page Ndeletik complète : liens, design et boutons officiels.",
 };
-
-const demoLinks = [
-  { Icon: FaWhatsapp, bg: "#25D366", title: "Commander sur WhatsApp", href: "https://wa.me" },
-  { Icon: SiShopify, bg: "#95BF47", title: "Ma boutique en ligne", href: "https://shopify.com" },
-  { Icon: FaInstagram, bg: "linear-gradient(45deg,#FEDA75 0%,#FA7E1E 25%,#D62976 50%,#962FBF 75%,#4F5BD5 100%)", title: "Mon Instagram", href: "https://instagram.com" },
-  { Icon: FaYoutube, bg: "#FF0000", title: "Ma chaîne YouTube", href: "https://youtube.com" },
-  { Icon: FaTiktok, bg: "#010101", title: "Mon TikTok", href: "https://tiktok.com" },
-];
 
 export default function DemoPage() {
   return (
@@ -52,12 +43,12 @@ export default function DemoPage() {
         <header className="text-center">
           <div className="relative w-28 h-28 mx-auto mb-5">
             <div className="absolute -inset-1.5 rounded-full bg-gradient-to-br from-fractal-or via-fractal-ocre to-fractal-terra opacity-90 blur-[2px]" />
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="https://images.unsplash.com/photo-1531123897727-8f129e1688ce?auto=format&fit=crop&w=240&q=80"
-              alt="Photo de démonstration"
-              className="relative w-28 h-28 rounded-full object-cover border-4 border-bg"
-            />
+            <div
+              aria-hidden="true"
+              className="relative flex h-28 w-28 items-center justify-center rounded-full border-4 border-bg bg-gradient-to-br from-fractal-or to-fractal-terra font-display text-4xl font-extrabold text-white"
+            >
+              A
+            </div>
           </div>
           <h1 className="text-3xl font-display font-extrabold text-ink">@awa.demo</h1>
           <p className="mt-3 text-muted leading-relaxed">
@@ -67,34 +58,7 @@ export default function DemoPage() {
           </p>
         </header>
 
-        {/* Liens fictifs avec vraies icônes */}
-        <section className="mt-10 space-y-4" aria-label="Liens de démonstration">
-          {demoLinks.map((l, i) => (
-            <a
-              key={l.title}
-              href={l.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group relative flex items-center gap-4 bg-surface border border-line rounded-2xl px-6 py-4 shadow-soft hover:border-fractal-ocre/60 transition-colors overflow-hidden"
-              style={{ transitionDelay: `${i * 20}ms` }}
-            >
-              <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-fractal-or via-fractal-ocre to-fractal-terra opacity-0 group-hover:opacity-100 transition-opacity" />
-              <span
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white shadow-soft"
-                style={{ background: l.bg }}
-              >
-                <l.Icon size={18} />
-              </span>
-              <span className="font-medium text-ink group-hover:text-fractal-terra transition-colors flex-1">
-                {l.title}
-              </span>
-              <ExternalLink
-                size={18}
-                className="text-muted group-hover:text-fractal-ocre transition-all group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
-              />
-            </a>
-          ))}
-        </section>
+        <DemoLinks />
 
         {/* CTA final */}
         <footer className="mt-16 text-center">

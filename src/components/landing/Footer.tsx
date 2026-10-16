@@ -28,7 +28,7 @@ export function Footer() {
         <div>
           <Wordmark />
           <p className="mt-3 max-w-xs text-sm text-muted">
-            Mindset. Strategy. Growth. <br />
+            Ta bio, tes liens, tes ventes. <br />
             La page de liens des créateurs africains.
           </p>
         </div>

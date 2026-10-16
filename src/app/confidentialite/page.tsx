@@ -3,7 +3,7 @@ import { ArrowLeft } from "lucide-react";
 import { Wordmark } from "@/components/landing/ui";
 
 export const metadata = {
-  title: "Confidentialité — Ndeletik",
+  title: "Confidentialité",
   description: "Comment Ndeletik collecte, stocke et protège tes données personnelles.",
 };
 

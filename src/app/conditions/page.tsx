@@ -3,7 +3,7 @@ import { ArrowLeft } from "lucide-react";
 import { Wordmark } from "@/components/landing/ui";
 
 export const metadata = {
-  title: "Conditions d'utilisation — Ndeletik",
+  title: "Conditions d'utilisation",
   description: "Les règles d'usage du service Ndeletik : comptes, contenus, plans, responsabilités.",
 };
 

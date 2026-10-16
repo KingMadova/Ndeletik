@@ -2,7 +2,7 @@ import { Link2, Palette, Send, UserRound } from "lucide-react";
 import { GradText, Mark, SectionTitle, grad } from "./ui";
 
 const steps = [
-  { n: "01", icon: UserRound, t: "Crée ton compte", d: "Inscris-toi avec ton e-mail ou ton numéro. C'est gratuit." },
+  { n: "01", icon: UserRound, t: "Crée ton compte", d: "Inscris-toi avec ton e-mail et choisis ton pseudo. C'est gratuit." },
   { n: "02", icon: Link2, t: "Ajoute tes liens", d: "WhatsApp, boutique, vidéos, formations : colle-les en quelques secondes." },
   { n: "03", icon: Palette, t: "Personnalise ton design", d: "Choisis tes couleurs, tes boutons et ta photo de profil." },
   { n: "04", icon: Send, t: "Partage ta page", d: "Mets ton lien Ndeletik dans ta bio et suis tes résultats." },
