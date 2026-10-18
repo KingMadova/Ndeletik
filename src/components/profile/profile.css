@@ -25,6 +25,14 @@
 .nd-socials { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 16px; }
 .nd-socials a { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 50%; background: var(--p-surface); border: 1px solid var(--p-border); font-size: 1rem; transition: transform 0.15s; }
 .nd-socials a:hover { transform: translateY(-2px); }
+/* ---------- Composition deux zones (thèmes Pro & Business uniquement) ---------- */
+/* Thèmes gratuits : la zone est transparente (display: contents) → rendu strictement identique à la galerie. */
+.nd-zone-main { display: contents; }
+/* Pro / Business : zone 1 = identité + réseaux ; zone 2 = conversion, séparée par un filet dégradé. */
+.nd-profile[data-parts="two"] .nd-zone-main { position: relative; display: flex; flex-direction: column; gap: 16px; width: 100%; margin-top: 14px; padding-top: 20px; }
+.nd-profile[data-parts="two"] .nd-zone-main::before { content: ""; position: absolute; top: 0; left: 8%; right: 8%; height: 1px; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--p-accent) 55%, transparent), transparent); }
+.nd-profile[data-parts="two"] .nd-header { padding-bottom: 6px; }
+.nd-profile[data-parts="two"] .nd-socials { margin-top: 18px; }
 /* ---------- Liens ---------- */
 .nd-links { width: 100%; display: flex; flex-direction: column; gap: 12px; }
 .nd-profile[data-layout="grid"] .nd-links { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }

@@ -180,6 +180,8 @@ export function ProfileRenderer({ profile, plan, themeOverride, customOverride, 
   const href = (l: LinkItem) => (preview ? "#" : trackBase ? `${trackBase}/${l.id}` : safeUrl(l.url) ?? "#");
   // Le plan gratuit affiche toujours le badge ; Pro et Business peuvent le retirer.
   const showBadge = !planAtLeast(plan, "pro") || profile.showBadge !== false;
+  // Composition en deux zones (identité + réseaux / conversion) : thèmes Pro et Business uniquement.
+  const twoParts = theme.plan !== "free";
   const avatar = safeImageUrl(profile.avatarUrl);
   const cover = safeImageUrl(profile.coverUrl);
   const initial = profile.displayName.trim().charAt(0).toUpperCase() || "N";
@@ -192,11 +194,13 @@ export function ProfileRenderer({ profile, plan, themeOverride, customOverride, 
       data-btn={theme.buttonStyle}
       data-header={theme.header}
       data-avatar={theme.avatarShape}
+      data-parts={twoParts ? "two" : undefined}
       data-upper-links={theme.uppercaseLinks ? "true" : undefined}
       data-upper-name={theme.uppercaseName ? "true" : undefined}
     >
       {fontsHref && <link rel="stylesheet" href={fontsHref} />}
       <main className="nd-col">
+        {/* ----- ZONE 1 : identité + réseaux / moyens de contact ----- */}
         <header className="nd-header">
           {theme.header === "cover" && (
             <div
@@ -218,7 +222,7 @@ export function ProfileRenderer({ profile, plan, themeOverride, customOverride, 
           {profile.headline && <p className="nd-headline">{profile.headline}</p>}
           {profile.bio && <p className="nd-bio">{profile.bio}</p>}
           {profile.socials.length > 0 && (
-            <nav className="nd-socials" aria-label="Réseaux sociaux">
+            <nav className="nd-socials" aria-label="Réseaux sociaux et moyens de contact">
               {profile.socials.map((s) => (
                 <a key={s.type} href={preview ? "#" : safeUrl(s.url) ?? "#"} aria-label={s.type} rel="noopener noreferrer">
                   <SocialIcon type={s.type} />
@@ -227,14 +231,19 @@ export function ProfileRenderer({ profile, plan, themeOverride, customOverride, 
             </nav>
           )}
         </header>
-        <nav className="nd-links" aria-label="Liens">
-          {links.map((l) => (
-            <LinkView key={l.id} link={l} layout={theme.layout} href={href(l)} />
+
+        {/* ----- ZONE 2 : conversion & activités (offres, réservations, boutique, formulaires) ----- */}
+        <section className="nd-zone-main" aria-label="Offres, liens et actions">
+          <nav className="nd-links" aria-label="Liens">
+            {links.map((l) => (
+              <LinkView key={l.id} link={l} layout={theme.layout} href={href(l)} />
+            ))}
+          </nav>
+          {profile.blocks?.map((b, i) => (
+            <BlockView key={i} block={b} slug={profile.slug} preview={preview} />
           ))}
-        </nav>
-        {profile.blocks?.map((b, i) => (
-          <BlockView key={i} block={b} slug={profile.slug} preview={preview} />
-        ))}
+        </section>
+
         {showBadge && (
           <footer className="nd-foot">
             <Link href="/">Créé avec Ndeletik</Link>
