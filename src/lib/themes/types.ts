@@ -8,6 +8,8 @@ export type ButtonStyle = "solid" | "outline" | "glass" | "soft" | "neu" | "grad
 /** Variantes d'en-tête. */
 export type HeaderVariant = "center" | "cover" | "arc";
 export type AvatarShape = "circle" | "blob" | "rounded";
+/** Mode d'affichage de l'image d'un lien (Lot P2). */
+export type ImageMode = "cover" | "popout" | "contain";
 
 /** Valeurs CSS pures : tout le look d'un thème tient ici. */
 export interface ThemeTokens {
@@ -40,6 +42,12 @@ export interface Theme {
   tracking?: string;
   /** Polices Google, format API css2 : "Playfair+Display:wght@400;700". */
   fonts: string[];
+  /**
+   * Composition en deux zones (zone 1 : identité + rangée compacte de réseaux,
+   * les 6 majeurs d'abord ; zone 2 : liens, offres, réservations, blocs).
+   * Option opt-in : les thèmes sans ce réglage gardent le rendu d'origine.
+   */
+  twoZones?: boolean;
   tokens: ThemeTokens;
 }
 
@@ -71,6 +79,8 @@ export interface LinkItem {
   url: string;
   icon?: string;
   image?: string;
+  /** Mode d'affichage de l'image (défaut : cover). */
+  imageMode?: ImageMode;
   cta?: string;
   featured?: boolean;
   enabled?: boolean;

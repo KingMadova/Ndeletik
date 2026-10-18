@@ -1,5 +1,5 @@
 
-===== FILE:  =====
+===== FILE: next.config.ts =====
 
 import type { NextConfig } from "next";
 
@@ -8,8 +8,7 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
-
-===== FILE:  =====
+===== FILE: scripts/gen-themes-seed.ts =====
 
 // Régénère le seed SQL de themes_catalog depuis lib/themes/*.ts
 // Usage : npx tsx scripts/gen-themes-seed.ts → copier le résultat dans une nouvelle migration.
@@ -18,8 +17,7 @@ import type { Theme } from "../src/lib/themes/types";
 
 const rows = ALL_THEMES.map((t: Theme) => `('${t.id}', '${t.plan}')`).join(",\n");
 console.log(`insert into public.themes_catalog (id, plan) values\n${rows}\non conflict (id) do update set plan = excluded.plan;`);
-
-===== FILE:  =====
+===== FILE: src/app/[handle]/opengraph-image.tsx =====
 
 import { cache } from "react";
 import { avatarDataUri, landingOg, OG_SIZE, OG_TYPE, profileOg } from "@/lib/og";
@@ -57,7 +55,7 @@ export default async function Image({ params }: { params: Promise<{ handle: stri
   });
 }
 
-===== FILE:  =====
+===== FILE: src/app/[handle]/page.tsx =====
 
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -131,8 +129,7 @@ export default async function PublicProfilePage({ params }: Props) {
     </>
   );
 }
-
-===== FILE:  =====
+===== FILE: src/app/[handle]/twitter-image.tsx =====
 
 import { cache } from "react";
 import { avatarDataUri, landingOg, OG_SIZE, OG_TYPE, profileOg } from "@/lib/og";
@@ -170,352 +167,507 @@ export default async function Image({ params }: { params: Promise<{ handle: stri
   });
 }
 
-===== FILE:  =====
+===== FILE: src/app/admin/layout.tsx =====
+
+import type { Metadata } from "next";
+import { AdminProvider } from "@/components/admin/AdminProvider";
+import { AdminShell } from "@/components/admin/AdminShell";
+
+export const metadata: Metadata = {
+  title: "Administration",
+  robots: { index: false, follow: false },
+};
+
+export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <AdminProvider>
+      <AdminShell>{children}</AdminShell>
+    </AdminProvider>
+  );
+}
+
+===== FILE: src/app/admin/page.tsx =====
+
+"use client";
+
+import { useMemo } from "react";
+import Link from "next/link";
+import dynamic from "next/dynamic";
+import { ChevronRight, Eye, Globe2, Link2, MousePointerClick, Users } from "lucide-react";
+import { Card, CardTitle } from "@/components/ui/Card";
+import { buttonClass } from "@/components/ui/Button";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { ProfileAvatar } from "@/components/dashboard/ProfileAvatar";
+import { useAdmin } from "@/components/admin/AdminProvider";
+import { PlanDot } from "@/components/admin/bits";
+import { MapBoundary, PlanDonut, Sparkline } from "@/components/admin/charts";
+import { computeStats } from "@/components/admin/stats";
+import { PLAN_COLORS, PLAN_ORDER, fmt, fmtDate } from "@/lib/admin-types";
+
+const WorldMap = dynamic(() => import("@/components/admin/WorldMap").then((m) => m.WorldMap), {
+  ssr: false,
+  loading: () => <div className="h-64 animate-pulse rounded-xl bg-soft" />,
+});
+
+export default function AdminOverviewPage() {
+  const { rows } = useAdmin();
+  const s = useMemo(() => computeStats(rows), [rows]);
+  const latest = useMemo(() => [...rows].sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at)).slice(0, 6), [rows]);
+  const maxCountry = Math.max(1, ...s.topCountries.map((c) => c.total));
+
+  const kpis = [
+    { icon: Users, label: "Créateurs inscrits", value: s.totals.users, sub: `+${s.buckets[7]} cette semaine`, spark: true },
+    { icon: Link2, label: "Liens publiés", value: s.totals.links, sub: "tous créateurs confondus" },
+    { icon: MousePointerClick, label: "Clics cumulés", value: s.totals.clicks, sub: "tous liens confondus" },
+    { icon: Eye, label: "Vues cumulées", value: s.totals.views, sub: "pages publiques" },
+  ];
+
+  return (
+    <>
+      <PageHeader
+        title="Vue d'ensemble"
+        description="L'activité de Ndeletik en un coup d'œil."
+        actions={
+          <Link href="/admin/users" className={buttonClass({ variant: "secondary" })}>
+            <Users size={16} aria-hidden /> Voir les utilisateurs
+          </Link>
+        }
+      />
+
+      <div className="space-y-6">
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+          {kpis.map((k) => (
+            <Card key={k.label} className="p-4">
+              <span className="mb-2 flex h-8 w-8 items-center justify-center rounded-lg bg-fractal-ocre/10 text-fractal-ocre">
+                <k.icon size={16} aria-hidden />
+              </span>
+              <div className="font-display text-2xl font-extrabold">{fmt(k.value)}</div>
+              <div className="text-xs text-muted">{k.label}</div>
+              {k.spark ? (
+                <>
+                  <Sparkline data={s.buckets} />
+                  <div className="text-[11px] font-medium text-fractal-terra">{k.sub}</div>
+                </>
+              ) : (
+                <div className="mt-1 text-[11px] text-muted/80">{k.sub}</div>
+              )}
+            </Card>
+          ))}
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
+          <Card>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="flex items-center gap-2 font-display text-sm font-bold">
+                <Globe2 size={16} className="text-fractal-ocre" aria-hidden /> Abonnés par pays
+              </h2>
+              <span className="text-xs text-muted">{s.markers.length} zone(s) active(s)</span>
+            </div>
+            <MapBoundary>
+              <WorldMap markers={s.markers} />
+            </MapBoundary>
+            {s.unlocated > 0 && (
+              <p className="mt-2 text-[11px] text-muted">{s.unlocated} profil(s) sans pays reconnu ne sont pas placés sur la carte.</p>
+            )}
+          </Card>
+
+          <div className="space-y-4">
+            <Card>
+              <CardTitle>Répartition des abonnements</CardTitle>
+              <PlanDonut counts={s.planCounts} />
+            </Card>
+            <Card>
+              <CardTitle>Top pays</CardTitle>
+              {s.topCountries.length === 0 ? (
+                <p className="text-xs text-muted">Aucune donnée de pays pour le moment.</p>
+              ) : (
+                <ul className="space-y-3">
+                  {s.topCountries.map((c) => {
+                    const dominant = PLAN_ORDER.reduce((a, b) => ((c.plans[a] ?? 0) >= (c.plans[b] ?? 0) ? a : b), "free");
+                    return (
+                      <li key={c.country}>
+                        <div className="mb-1 flex justify-between text-sm">
+                          <span className="truncate pr-3">{c.country}</span>
+                          <span className="text-muted">{c.total}</span>
+                        </div>
+                        <div className="h-2 rounded-full bg-soft">
+                          <div
+                            className="h-2 rounded-full transition-all duration-500"
+                            style={{ width: `${(c.total / maxCountry) * 100}%`, background: PLAN_COLORS[dominant] }}
+                          />
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </Card>
+          </div>
+        </div>
+
+        <Card padded={false}>
+          <div className="flex items-center justify-between px-5 pb-2 pt-5">
+            <h2 className="font-display text-sm font-bold">Dernières inscriptions</h2>
+            <Link href="/admin/users" className="text-xs font-semibold text-fractal-terra hover:underline">
+              Tout voir
+            </Link>
+          </div>
+          <ul className="divide-y divide-line">
+            {latest.map((r) => (
+              <li key={r.id}>
+                <Link href={`/admin/users/${r.id}`} className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-soft/60">
+                  <ProfileAvatar profile={r} size={36} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold">@{r.slug}</p>
+                    <p className="truncate text-xs text-muted">
+                      {r.display_name} · {fmtDate(r.created_at)}
+                    </p>
+                  </div>
+                  <span className="hidden sm:block">
+                    <PlanDot plan={r.plan} />
+                  </span>
+                  <ChevronRight size={16} className="text-muted" aria-hidden />
+                </Link>
+              </li>
+            ))}
+            {latest.length === 0 && <li className="px-5 py-8 text-center text-sm text-muted">Aucune inscription pour le moment.</li>}
+          </ul>
+        </Card>
+
+        <div className="rounded-2xl border border-dashed border-line bg-soft/50 p-6 text-center">
+          <p className="text-sm font-semibold">Revenus Mobile Money</p>
+          <p className="mt-1 text-xs text-muted">
+            Le tableau des commissions (plans Pro/Business + transactions) apparaîtra ici dès l'intégration Sebpay.
+          </p>
+        </div>
+      </div>
+    </>
+  );
+}
+
+===== FILE: src/app/admin/users/[id]/page.tsx =====
 
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import { Users, BarChart3, Palette, Settings, LogOut } from "lucide-react";
+import { useParams, useRouter } from "next/navigation";
+import { ArrowLeft, Copy, Crown, ExternalLink, Eye, Link2, MousePointerClick, Trash2, Users } from "lucide-react";
+import { Button, buttonClass } from "@/components/ui/Button";
+import { Card, CardTitle } from "@/components/ui/Card";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Field, inputClass } from "@/components/ui/Field";
+import { Modal } from "@/components/ui/Modal";
+import { ProfileAvatar } from "@/components/dashboard/ProfileAvatar";
+import { useToast } from "@/components/dashboard/Toast";
+import { useAdmin } from "@/components/admin/AdminProvider";
+import { PlanDot, RoleBadge } from "@/components/admin/bits";
+import { fmt, fmtDate } from "@/lib/admin-types";
 import { supabase } from "@/lib/supabaseClient";
 
-type Tab = {
-  id: string;
-  label: string;
-  href: string;
-  icon: any;
-};
+type LinkRow = { id: string; title: string; url: string; clicks: number; enabled: boolean };
 
-const TABS: Tab[] = [
-  { id: "users", label: "Utilisateurs", href: "/admin", icon: Users },
-  { id: "stats", label: "Statistiques", href: "/admin/stats", icon: BarChart3 },
-  { id: "themes", label: "Thèmes", href: "/admin/themes", icon: Palette },
-  { id: "settings", label: "Paramètres", href: "/admin/settings", icon: Settings },
-];
-
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+export default function AdminUserPage() {
+  const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const pathname = usePathname();
-  const [user, setUser] = useState<any>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+  const { rows, meId, toggleRole, deleteUser } = useAdmin();
+  const row = rows.find((r) => r.id === id);
+
+  const [links, setLinks] = useState<LinkRow[] | null>(null);
+  const [roleModal, setRoleModal] = useState(false);
+  const [delModal, setDelModal] = useState(false);
+  const [typed, setTyped] = useState("");
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        router.replace("/auth");
-        return;
-      }
-      setUser(session.user);
+    if (!id) return;
+    let alive = true;
+    setLinks(null);
+    supabase
+      .from("links")
+      .select("id, title, url, clicks, enabled")
+      .eq("profile_id", id)
+      .order("position", { ascending: true })
+      .then(({ data }) => {
+        if (alive) setLinks((data ?? []) as LinkRow[]);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [id]);
 
-      const { data: p } = await supabase.from("profiles").select("is_admin").eq("user_id", session.user.id).single();
-      if (!p || !p.is_admin) {
-        router.replace("/dashboard");
-        return;
-      }
-      setIsAdmin(true);
-      setLoading(false);
-    })();
-  }, [router]);
-
-  const logout = async () => {
-    await supabase.auth.signOut();
-    router.replace("/auth");
-  };
-
-  if (loading) {
+  if (!row) {
     return (
-      <div className="min-h-screen bg-bg p-6 animate-pulse">
-        <div className="max-w-7xl mx-auto space-y-4">
-          <div className="h-16 rounded-xl bg-line/70" />
-          <div className="h-96 rounded-2xl bg-line/70" />
-        </div>
-      </div>
+      <EmptyState
+        icon={<Users size={22} aria-hidden />}
+        title="Utilisateur introuvable"
+        description="Ce profil n'existe plus ou a été supprimé."
+        action={
+          <Link href="/admin/users" className={buttonClass({ variant: "secondary" })}>
+            <ArrowLeft size={16} aria-hidden /> Retour aux utilisateurs
+          </Link>
+        }
+      />
     );
   }
 
-  if (!isAdmin) {
-    return null;
-  }
+  const isMe = row.user_id === meId;
+  const isAdmin = row.role === "admin";
+  const siblings = rows.filter((r) => r.user_id === row.user_id && r.id !== row.id);
+  const lastProfile = siblings.length === 0;
 
-  const currentTab = TABS.find((t) => pathname === t.href) || TABS[0];
+  const copyId = async () => {
+    try {
+      await navigator.clipboard.writeText(row.user_id);
+      toast("Identifiant copié");
+    } catch {
+      toast("Copie impossible", false);
+    }
+  };
+
+  const confirmRole = async () => {
+    setBusy(true);
+    const ok = await toggleRole(row);
+    setBusy(false);
+    if (ok) setRoleModal(false);
+  };
+
+  const confirmDelete = async () => {
+    setBusy(true);
+    const ok = await deleteUser(row);
+    setBusy(false);
+    if (ok) router.replace("/admin/users");
+  };
 
   return (
-    <div className="min-h-screen bg-bg text-ink">
-      {/* Header */}
-      <header className="sticky top-0 z-40 border-b border-line bg-surface/95 backdrop-blur">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-fractal-terra text-white flex items-center justify-center font-bold text-sm">
-              A
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-ink">Backoffice Ndeletik</p>
-              <p className="text-xs text-muted">Administration</p>
-            </div>
+    <>
+      <Link href="/admin/users" className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-muted hover:text-fractal-terra">
+        <ArrowLeft size={15} aria-hidden /> Utilisateurs
+      </Link>
+
+      <Card className="mb-6 flex flex-wrap items-center gap-4">
+        <ProfileAvatar profile={row} size={64} />
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate font-display text-2xl font-extrabold tracking-tight">@{row.slug}</h1>
+          <p className="truncate text-sm text-muted">{row.display_name}</p>
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <PlanDot plan={row.plan} />
+            <RoleBadge role={row.role} />
+            {isMe && <span className="text-xs font-medium text-fractal-terra">C'est toi</span>}
           </div>
-
-          <button
-            onClick={logout}
-            aria-label="Déconnexion"
-            className="p-2 rounded-lg text-muted hover:bg-soft hover:text-fractal-terra transition-colors"
-          >
-            <LogOut size={18} />
-          </button>
         </div>
-      </header>
+        <a href={`/@${row.slug}`} target="_blank" rel="noopener noreferrer" className={buttonClass({ variant: "secondary" })}>
+          <ExternalLink size={16} aria-hidden /> Voir sa page
+        </a>
+      </Card>
 
-      <div className="mx-auto max-w-7xl sm:px-6 lg:grid lg:grid-cols-[240px_1fr] lg:gap-6">
-        {/* Menu latéral (desktop) */}
-        <aside className="hidden lg:block">
-          <nav className="sticky top-20 py-6 space-y-1">
-            {TABS.map((tab) => {
-              const isActive = pathname === tab.href;
-              return (
-                <Link
-                  key={tab.id}
-                  href={tab.href}
-                  className={`flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors ${
-                    isActive ? "bg-fractal-terra/10 text-fractal-terra" : "text-muted hover:bg-soft hover:text-ink"
-                  }`}
-                >
-                  <tab.icon size={18} />
-                  {tab.label}
-                </Link>
-              );
-            })}
-          </nav>
-        </aside>
-
-        {/* Contenu principal */}
-        <main className="pb-20 lg:pb-6">{children}</main>
+      <div className="mb-6 grid gap-4 sm:grid-cols-3">
+        <Stat icon={<Link2 size={18} aria-hidden />} label="Liens" value={fmt(row.links_count)} />
+        <Stat icon={<MousePointerClick size={18} aria-hidden />} label="Clics" value={fmt(row.clicks_total)} />
+        <Stat icon={<Eye size={18} aria-hidden />} label="Vues de la page" value={fmt(row.views)} />
       </div>
 
-      {/* Barre d'onglets en bas (mobile) */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-line bg-surface/95 backdrop-blur">
-        <div className="flex justify-around py-2">
-          {TABS.map((tab) => {
-            const isActive = pathname === tab.href;
-            return (
-              <Link
-                key={tab.id}
-                href={tab.href}
-                className={`flex flex-col items-center gap-1 px-3 py-1.5 text-xs font-medium transition-colors ${
-                  isActive ? "text-fractal-terra" : "text-muted"
-                }`}
-              >
-                <tab.icon size={20} />
-                {tab.label}
-              </Link>
-            );
-          })}
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="min-w-0 space-y-6">
+          <Card padded={false}>
+            <div className="px-5 pb-2 pt-5">
+              <CardTitle hint="Les liens publiés et masqués de ce profil.">Liens du profil</CardTitle>
+            </div>
+            {links === null ? (
+              <div className="space-y-2 px-5 pb-5">
+                <div className="h-10 animate-pulse rounded-xl bg-line/50" />
+                <div className="h-10 animate-pulse rounded-xl bg-line/50" />
+              </div>
+            ) : links.length === 0 ? (
+              <p className="px-5 pb-6 text-sm text-muted">Aucun lien pour le moment.</p>
+            ) : (
+              <ul className="divide-y divide-line">
+                {links.map((l) => (
+                  <li key={l.id} className="flex items-center gap-3 px-5 py-3">
+                    <div className={`min-w-0 flex-1 ${l.enabled ? "" : "opacity-55"}`}>
+                      <p className="truncate text-sm font-semibold">{l.title}</p>
+                      <p className="truncate text-xs text-muted">
+                        {l.enabled ? "" : "Masqué · "}
+                        {l.url.replace(/^https?:\/\//, "")}
+                      </p>
+                    </div>
+                    <span className="shrink-0 rounded-full bg-soft px-2.5 py-1 text-xs text-muted">
+                      {fmt(l.clicks)} clic{l.clicks > 1 ? "s" : ""}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+
+          {siblings.length > 0 && (
+            <Card padded={false}>
+              <div className="px-5 pb-2 pt-5">
+                <CardTitle hint="Autres profils rattachés au même compte.">Autres profils du compte</CardTitle>
+              </div>
+              <ul className="divide-y divide-line">
+                {siblings.map((s) => (
+                  <li key={s.id}>
+                    <Link href={`/admin/users/${s.id}`} className="flex items-center gap-3 px-5 py-3 hover:bg-soft/60">
+                      <ProfileAvatar profile={s} size={32} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-semibold">@{s.slug}</span>
+                        <span className="block truncate text-xs text-muted">{s.display_name}</span>
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
         </div>
-      </nav>
+
+        <div className="space-y-6">
+          <Card>
+            <CardTitle>Détails</CardTitle>
+            <dl className="space-y-3 text-sm">
+              <Detail label="Pays" value={row.country ?? "—"} />
+              <Detail label="Thème" value={row.theme_id} />
+              <Detail label="Inscrit le" value={fmtDate(row.created_at)} />
+              <div className="flex items-center justify-between gap-3">
+                <dt className="text-muted">Identifiant</dt>
+                <dd className="flex min-w-0 items-center gap-1.5">
+                  <code className="truncate text-xs">{row.user_id.slice(0, 8)}…</code>
+                  <button type="button" onClick={copyId} aria-label="Copier l'identifiant du compte" className="rounded-full p-1.5 text-muted hover:bg-soft hover:text-fractal-terra">
+                    <Copy size={13} aria-hidden />
+                  </button>
+                </dd>
+              </div>
+            </dl>
+          </Card>
+
+          <Card>
+            <CardTitle hint={isAdmin ? "Peut accéder à cette administration." : "Accès standard à son espace."}>Rôle</CardTitle>
+            <Button variant="secondary" full disabled={isMe} onClick={() => setRoleModal(true)}>
+              <Crown size={16} aria-hidden /> {isAdmin ? "Retirer le rôle administrateur" : "Promouvoir administrateur"}
+            </Button>
+            {isMe && <p className="mt-2 text-xs text-muted">Tu ne peux pas modifier ton propre rôle.</p>}
+          </Card>
+
+          <Card className="border-red-200">
+            <CardTitle hint="Action irréversible.">Zone sensible</CardTitle>
+            <Button
+              variant="danger"
+              full
+              disabled={isMe}
+              className="border border-red-200"
+              onClick={() => {
+                setTyped("");
+                setDelModal(true);
+              }}
+            >
+              <Trash2 size={16} aria-hidden /> Supprimer ce profil
+            </Button>
+            {isMe && <p className="mt-2 text-xs text-muted">Tu ne peux pas supprimer ton propre compte ici.</p>}
+          </Card>
+        </div>
+      </div>
+
+      <Modal
+        open={roleModal}
+        onClose={() => setRoleModal(false)}
+        title={isAdmin ? "Retirer le rôle administrateur ?" : "Promouvoir administrateur ?"}
+        description={
+          isAdmin
+            ? `@${row.slug} n'aura plus accès à l'administration.`
+            : `@${row.slug} pourra voir tous les utilisateurs, modifier les rôles et supprimer des comptes.`
+        }
+        size="sm"
+      >
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" onClick={() => setRoleModal(false)}>
+            Annuler
+          </Button>
+          <Button onClick={confirmRole} disabled={busy} data-autofocus>
+            {busy ? "En cours…" : "Confirmer"}
+          </Button>
+        </div>
+      </Modal>
+
+      <Modal
+        open={delModal}
+        onClose={() => setDelModal(false)}
+        title="Supprimer ce profil ?"
+        description={
+          lastProfile
+            ? `@${row.slug}, ses liens et son compte seront supprimés définitivement.`
+            : `@${row.slug} et ses liens seront supprimés. Le compte reste actif : il a ${siblings.length} autre${siblings.length > 1 ? "s" : ""} profil${siblings.length > 1 ? "s" : ""}.`
+        }
+      >
+        <div className="grid gap-4">
+          <Field label={`Pour confirmer, tape « ${row.slug} »`}>
+            <input value={typed} onChange={(e) => setTyped(e.target.value)} className={inputClass} autoCapitalize="none" autoCorrect="off" data-autofocus />
+          </Field>
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setDelModal(false)}>
+              Annuler
+            </Button>
+            <Button className="!bg-red-600 hover:!bg-red-700" disabled={typed.trim() !== row.slug || busy} onClick={confirmDelete}>
+              <Trash2 size={16} aria-hidden /> {busy ? "Suppression…" : "Supprimer définitivement"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+    </>
+  );
+}
+
+function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <Card className="flex items-center gap-4">
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-fractal-ocre/10 text-fractal-ocre">{icon}</span>
+      <div>
+        <p className="text-xs text-muted">{label}</p>
+        <p className="font-display text-2xl font-extrabold">{value}</p>
+      </div>
+    </Card>
+  );
+}
+
+function Detail({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <dt className="text-muted">{label}</dt>
+      <dd className="truncate font-medium">{value}</dd>
     </div>
   );
 }
 
-===== FILE:  =====
+===== FILE: src/app/admin/users/page.tsx =====
 
 "use client";
 
-import { Component, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import dynamic from "next/dynamic";
-import {
-  Users, Link2, MousePointerClick, Eye, ArrowLeft, ExternalLink, Crown, Trash2, Shield,
-  Globe2, Search, Download, FilterX,
-} from "lucide-react";
-import { supabase } from "@/lib/supabaseClient";
-import { useToast } from "@/components/dashboard/Toast";
-import { getCoords } from "@/lib/countryCoords";
+import { ChevronRight, Download, FilterX, Search, Users } from "lucide-react";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { inputClass } from "@/components/ui/Field";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { ProfileAvatar } from "@/components/dashboard/ProfileAvatar";
+import { useAdmin } from "@/components/admin/AdminProvider";
+import { PlanDot, RoleBadge } from "@/components/admin/bits";
+import { PLAN_LABELS, PLAN_ORDER, SORTS, fmt, fmtDate, type SortKey } from "@/lib/admin-types";
 
-const WorldMap = dynamic(
-  () => import("@/components/admin/WorldMap").then((m) => m.WorldMap),
-  { ssr: false, loading: () => <div className="h-64 rounded-xl bg-soft animate-pulse" /> }
-);
+const PAGE = 50;
 
-const PLAN_COLORS: Record<string, string> = { free: "#F9A825", pro: "#FF6A1A", business: "#C1440E" };
-const PLAN_LABELS: Record<string, string> = { free: "Gratuit", pro: "Pro", business: "Business" };
-const PLAN_ORDER = ["free", "pro", "business"];
-
-type MapMarker = { lat: number; lon: number; plan: string; count: number; country: string };
-type SortKey = "recent" | "old" | "clicks" | "views" | "links" | "az";
-
-const SORTS: { id: SortKey; label: string }[] = [
-  { id: "recent", label: "Inscriptions récentes" },
-  { id: "old", label: "Inscriptions anciennes" },
-  { id: "clicks", label: "Plus de clics" },
-  { id: "views", label: "Plus de vues" },
-  { id: "links", label: "Plus de liens" },
-  { id: "az", label: "Pseudo A → Z" },
-];
-
-type Row = {
-  id: string;
-  user_id: string;
-  slug: string;
-  display_name: string;
-  country: string | null;
-  views: number;
-  theme_id: string;
-  created_at: string;
-  plan: string;
-  role: string;
-  links_count: number;
-  clicks_total: number;
-};
-
-class MapBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
-  state = { failed: false };
-  static getDerivedStateFromError() {
-    return { failed: true };
-  }
-  render() {
-    if (this.state.failed) {
-      return (
-        <div className="flex h-64 items-center justify-center rounded-xl bg-soft text-sm text-muted">
-          Carte indisponible (npm i d3-geo topojson-client).
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
-
-function Sparkline({ data }: { data: number[] }) {
-  const max = Math.max(1, ...data);
-  const pts = data
-    .map((v, i) => `${(i / Math.max(1, data.length - 1)) * 100},${26 - (v / max) * 20 - 3}`)
-    .join(" ");
-  return (
-    <svg viewBox="0 0 100 30" className="h-8 w-full" preserveAspectRatio="none" aria-hidden>
-      <polyline points={pts} fill="none" stroke="#FF6A1A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function PlanDonut({ counts }: { counts: Record<string, number> }) {
-  const total = Math.max(1, PLAN_ORDER.reduce((s, p) => s + (counts[p] ?? 0), 0));
-  const R = 40;
-  const C = 2 * Math.PI * R;
-  let acc = 0;
-  const segs = PLAN_ORDER.map((p) => {
-    const frac = (counts[p] ?? 0) / total;
-    const s = { p, frac, offset: acc };
-    acc += frac;
-    return s;
-  });
-  return (
-    <div className="flex items-center gap-5">
-      <div className="relative h-32 w-32 shrink-0">
-        <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
-          <circle cx="50" cy="50" r={R} fill="none" stroke="var(--color-soft)" strokeWidth="13" />
-          {segs.map(
-            (s) =>
-              s.frac > 0 && (
-                <circle
-                  key={s.p}
-                  cx="50"
-                  cy="50"
-                  r={R}
-                  fill="none"
-                  stroke={PLAN_COLORS[s.p]}
-                  strokeWidth="13"
-                  strokeDasharray={`${C * s.frac} ${C}`}
-                  strokeDashoffset={-C * s.offset}
-                />
-              )
-          )}
-        </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="font-display text-xl font-extrabold">{total}</span>
-          <span className="text-[10px] text-muted">comptes</span>
-        </div>
-      </div>
-      <ul className="flex-1 space-y-2 text-sm">
-        {segs.map((s) => (
-          <li key={s.p} className="flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full" style={{ background: PLAN_COLORS[s.p] }} />
-            <span className="text-muted">{PLAN_LABELS[s.p]}</span>
-            <span className="ml-auto font-semibold">{counts[s.p] ?? 0}</span>
-            <span className="w-10 text-right text-xs text-muted">
-              {Math.round(((counts[s.p] ?? 0) / total) * 100)}%
-            </span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-const inputCls =
-  "rounded-xl border border-line bg-bg px-3 py-2.5 text-sm text-ink focus:outline-none focus:border-fractal-ocre transition-colors";
-
-export default function AdminPage() {
+export default function AdminUsersPage() {
+  const { rows, exportCsv } = useAdmin();
   const router = useRouter();
-  const { toast, node: toastNode } = useToast();
-  const [rows, setRows] = useState<Row[]>([]);
-  const [loading, setLoading] = useState(true);
-
   const [q, setQ] = useState("");
   const [country, setCountry] = useState("all");
   const [plan, setPlan] = useState("all");
   const [role, setRole] = useState("all");
   const [sort, setSort] = useState<SortKey>("recent");
-
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return router.replace("/auth");
-
-      const [{ data: profs }, { data: accs }, { data: lnks }] = await Promise.all([
-        supabase.from("profiles").select("id, user_id, slug, display_name, country, views, theme_id, created_at"),
-        supabase.from("accounts").select("user_id, plan, role"),
-        supabase.from("links").select("profile_id, clicks"),
-      ]);
-      if (!alive) return;
-
-      const me = (accs ?? []).find((a: any) => a.user_id === session.user.id);
-      if (!me || me.role !== "admin") {
-        toast(`Accès admin refusé (rôle : ${me?.role ?? "inconnu"})`, false);
-        return router.replace("/dashboard");
-      }
-
-      const accByUser = new Map<string, any>((accs ?? []).map((a: any) => [a.user_id, a]));
-      const linkAgg = new Map<string, { count: number; clicks: number }>();
-      (lnks ?? []).forEach((l: any) => {
-        const a = linkAgg.get(l.profile_id) ?? { count: 0, clicks: 0 };
-        a.count += 1;
-        a.clicks += l.clicks ?? 0;
-        linkAgg.set(l.profile_id, a);
-      });
-
-      setRows(
-        ((profs ?? []) as any[]).map((p) => ({
-          id: p.id,
-          user_id: p.user_id,
-          slug: p.slug,
-          display_name: p.display_name,
-          country: p.country,
-          views: p.views ?? 0,
-          theme_id: p.theme_id,
-          created_at: p.created_at,
-          plan: accByUser.get(p.user_id)?.plan ?? "free",
-          role: accByUser.get(p.user_id)?.role ?? "user",
-          links_count: linkAgg.get(p.id)?.count ?? 0,
-          clicks_total: linkAgg.get(p.id)?.clicks ?? 0,
-        }))
-      );
-      setLoading(false);
-    })();
-    return () => {
-      alive = false;
-    };
-  }, [router, toast]);
+  const [limit, setLimit] = useState(PAGE);
 
   const countryOptions = useMemo(() => {
     const m = new Map<string, number>();
@@ -535,422 +687,198 @@ export default function AdminPage() {
       if (role !== "all" && r.role !== role) return false;
       return true;
     });
-    switch (sort) {
-      case "old":
-        return [...list].sort((a, b) => +new Date(a.created_at) - +new Date(b.created_at));
-      case "clicks":
-        return [...list].sort((a, b) => b.clicks_total - a.clicks_total);
-      case "views":
-        return [...list].sort((a, b) => b.views - a.views);
-      case "links":
-        return [...list].sort((a, b) => b.links_count - a.links_count);
-      case "az":
-        return [...list].sort((a, b) => a.slug.localeCompare(b.slug, "fr"));
-      default:
-        return [...list].sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
-    }
+    const by: Record<SortKey, (a: (typeof rows)[number], b: (typeof rows)[number]) => number> = {
+      recent: (a, b) => +new Date(b.created_at) - +new Date(a.created_at),
+      old: (a, b) => +new Date(a.created_at) - +new Date(b.created_at),
+      clicks: (a, b) => b.clicks_total - a.clicks_total,
+      views: (a, b) => b.views - a.views,
+      links: (a, b) => b.links_count - a.links_count,
+      az: (a, b) => a.slug.localeCompare(b.slug, "fr"),
+    };
+    return [...list].sort(by[sort]);
   }, [rows, q, country, plan, role, sort]);
 
   const hasFilters = q !== "" || country !== "all" || plan !== "all" || role !== "all";
-  const resetFilters = () => {
+  const reset = () => {
     setQ("");
     setCountry("all");
     setPlan("all");
     setRole("all");
+    setLimit(PAGE);
   };
-
-  const exportCsv = () => {
-    const header = ["pseudo", "nom_affiche", "pays", "plan", "role", "theme", "liens", "clics", "vues", "inscrit_le"];
-    const lines = filtered.map((r) =>
-      [
-        r.slug,
-        r.display_name,
-        r.country ?? "",
-        r.plan,
-        r.role,
-        r.theme_id,
-        r.links_count,
-        r.clicks_total,
-        r.views,
-        new Date(r.created_at).toLocaleDateString("fr-FR"),
-      ]
-        .map((v) => `"${String(v).replace(/"/g, '""')}"`)
-        .join(",")
-    );
-    const csv = [header.join(","), ...lines].join("\n");
-    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `ndeletik-utilisateurs-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast(`Export CSV : ${filtered.length} ligne(s)`);
-  };
-
-  const toggleRole = async (r: Row) => {
-    const next = r.role === "admin" ? "user" : "admin";
-    const { error } = await supabase.from("accounts").update({ role: next }).eq("user_id", r.user_id);
-    if (error) return toast("Modification échouée", false);
-    setRows((prev) => prev.map((x) => (x.id === r.id ? { ...x, role: next } : x)));
-    toast(`@${r.slug} → ${next}`);
-  };
-
-  const deleteUser = async (r: Row) => {
-    if (!confirm(`Supprimer définitivement @${r.slug}, ses liens et son compte ?`)) return;
-    const { error: e1 } = await supabase.from("profiles").delete().eq("id", r.id);
-    const { error: e2 } = await supabase.from("accounts").delete().eq("user_id", r.user_id);
-    if (e1 || e2) return toast("Suppression échouée", false);
-    setRows((prev) => prev.filter((x) => x.id !== r.id));
-    toast(`@${r.slug} supprimé`);
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-bg p-6 animate-pulse">
-        <div className="max-w-6xl mx-auto space-y-4">
-          <div className="h-8 w-48 rounded bg-line/70" />
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="h-24 rounded-2xl bg-line/70" />
-            ))}
-          </div>
-          <div className="h-96 rounded-2xl bg-line/70" />
-        </div>
-      </div>
-    );
-  }
-
-  const totals = rows.reduce(
-    (acc, r) => ({
-      users: acc.users + 1,
-      links: acc.links + r.links_count,
-      clicks: acc.clicks + r.clicks_total,
-      views: acc.views + r.views,
-    }),
-    { users: 0, links: 0, clicks: 0, views: 0 }
-  );
-
-  const planCounts: Record<string, number> = { free: 0, pro: 0, business: 0 };
-  rows.forEach((r) => {
-    planCounts[r.plan] = (planCounts[r.plan] ?? 0) + 1;
-  });
-
-  const now = Date.now();
-  const buckets = Array(8).fill(0);
-  rows.forEach((r) => {
-    const w = Math.floor((now - new Date(r.created_at).getTime()) / 604800000);
-    if (w >= 0 && w < 8) buckets[7 - w]++;
-  });
-
-  const countryAgg = new Map<string, { country: string; total: number; plans: Record<string, number>; lat: number; lon: number }>();
-  let unlocated = 0;
-  rows.forEach((r) => {
-    const coords = getCoords(r.country);
-    if (!coords) {
-      unlocated++;
-      return;
-    }
-    const key = r.country!.trim().toLowerCase();
-    const e = countryAgg.get(key) ?? { country: r.country!.trim(), total: 0, plans: {}, lat: coords[0], lon: coords[1] };
-    e.total++;
-    e.plans[r.plan] = (e.plans[r.plan] ?? 0) + 1;
-    countryAgg.set(key, e);
-  });
-
-  const markers: MapMarker[] = [];
-  countryAgg.forEach((c) => {
-    PLAN_ORDER.forEach((p, idx) => {
-      if ((c.plans[p] ?? 0) > 0) {
-        markers.push({
-          lat: c.lat + (idx - 1) * 1.6,
-          lon: c.lon + (idx - 1) * 1.6,
-          plan: p,
-          count: c.plans[p],
-          country: c.country,
-        });
-      }
-    });
-  });
-
-  const topCountries = [...countryAgg.values()].sort((a, b) => b.total - a.total).slice(0, 5);
-  const maxCountry = Math.max(1, ...topCountries.map((c) => c.total));
-
-  const kpis = [
-    { icon: Users, label: "Créateurs inscrits", value: totals.users, sub: `+${buckets[7]} cette semaine`, spark: true },
-    { icon: Link2, label: "Liens publiés", value: totals.links, sub: "tous créateurs confondus", spark: false },
-    { icon: MousePointerClick, label: "Clics cumulés", value: totals.clicks, sub: "tous liens confondus", spark: false },
-    { icon: Eye, label: "Vues cumulées", value: totals.views, sub: "pages publiques", spark: false },
-  ];
+  const shown = filtered.slice(0, limit);
+  const accounts = new Set(rows.map((r) => r.user_id)).size;
 
   return (
-    <div className="min-h-screen bg-bg text-ink">
-      <div className="max-w-6xl mx-auto p-4 sm:p-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-fractal-or via-fractal-ocre to-fractal-terra text-white shadow-soft">
-              <Shield size={20} />
-            </span>
-            <div>
-              <h1 className="font-display text-xl font-extrabold">Backoffice YEKOLA</h1>
-              <p className="text-xs text-muted">
-                {new Date().toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
-              </p>
-            </div>
-          </div>
-          <a
-            href="/dashboard"
-            className="inline-flex items-center gap-1.5 rounded-full border border-line px-4 py-2 text-sm text-muted hover:border-fractal-ocre hover:text-fractal-terra transition-colors"
-          >
-            <ArrowLeft size={14} /> Mon dashboard
-          </a>
+    <>
+      <PageHeader
+        title="Utilisateurs"
+        description={`${fmt(rows.length)} profil${rows.length > 1 ? "s" : ""} · ${fmt(accounts)} compte${accounts > 1 ? "s" : ""}`}
+        actions={
+          <Button onClick={() => exportCsv(filtered)} disabled={filtered.length === 0}>
+            <Download size={16} aria-hidden /> Export CSV
+          </Button>
+        }
+      />
+
+      <Card className="mb-4">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
+          <label className="relative col-span-2">
+            <span className="sr-only">Rechercher</span>
+            <Search size={15} aria-hidden className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" />
+            <input
+              value={q}
+              onChange={(e) => {
+                setQ(e.target.value);
+                setLimit(PAGE);
+              }}
+              placeholder="Pseudo ou nom…"
+              className={`${inputClass} pl-9`}
+            />
+          </label>
+          <select value={country} onChange={(e) => setCountry(e.target.value)} className={inputClass} aria-label="Filtrer par pays">
+            <option value="all">Tous les pays</option>
+            {countryOptions.map(([c, n]) => (
+              <option key={c} value={c}>
+                {c} ({n})
+              </option>
+            ))}
+          </select>
+          <select value={plan} onChange={(e) => setPlan(e.target.value)} className={inputClass} aria-label="Filtrer par plan">
+            <option value="all">Tous les plans</option>
+            {PLAN_ORDER.map((p) => (
+              <option key={p} value={p}>
+                {PLAN_LABELS[p]}
+              </option>
+            ))}
+          </select>
+          <select value={role} onChange={(e) => setRole(e.target.value)} className={inputClass} aria-label="Filtrer par rôle">
+            <option value="all">Tous les rôles</option>
+            <option value="admin">Admins</option>
+            <option value="user">Utilisateurs</option>
+          </select>
+          <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)} className={inputClass} aria-label="Trier">
+            {SORTS.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.label}
+              </option>
+            ))}
+          </select>
         </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {kpis.map((k) => (
-            <div key={k.label} className="bg-surface border border-line rounded-2xl p-4 shadow-soft">
-              <span className="mb-2 flex h-8 w-8 items-center justify-center rounded-lg bg-soft text-fractal-ocre">
-                <k.icon size={16} />
-              </span>
-              <div className="font-display text-2xl font-extrabold">
-                {new Intl.NumberFormat("fr-FR").format(k.value)}
-              </div>
-              <div className="text-xs text-muted">{k.label}</div>
-              {k.spark ? (
-                <>
-                  <Sparkline data={buckets} />
-                  <div className="text-[11px] font-medium text-fractal-terra">{k.sub}</div>
-                </>
-              ) : (
-                <div className="mt-1 text-[11px] text-muted/80">{k.sub}</div>
-              )}
-            </div>
-          ))}
+        <div className="mt-3 flex items-center justify-between text-xs text-muted">
+          <span>
+            {fmt(filtered.length)} affiché{filtered.length > 1 ? "s" : ""} sur {fmt(rows.length)}
+          </span>
+          {hasFilters && (
+            <Button variant="ghost" size="sm" onClick={reset}>
+              <FilterX size={13} aria-hidden /> Réinitialiser
+            </Button>
+          )}
         </div>
+      </Card>
 
-        <div className="grid lg:grid-cols-[1.6fr_1fr] gap-4">
-          <div className="bg-surface border border-line rounded-2xl p-5 shadow-soft">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="flex items-center gap-2 text-sm font-semibold">
-                <Globe2 size={16} className="text-fractal-ocre" /> Abonnés par pays
-              </h2>
-              <span className="text-xs text-muted">{markers.length} zone(s) active(s)</span>
-            </div>
-            <MapBoundary>
-              <WorldMap markers={markers} />
-            </MapBoundary>
-            {unlocated > 0 && (
-              <p className="mt-2 text-[11px] text-muted">
-                {unlocated} profil(s) sans pays reconnu ne sont pas placés sur la carte.
-              </p>
-            )}
-          </div>
-
-          <div className="space-y-4">
-            <div className="bg-surface border border-line rounded-2xl p-5 shadow-soft">
-              <h2 className="mb-4 text-sm font-semibold">Répartition des abonnements</h2>
-              <PlanDonut counts={planCounts} />
-            </div>
-            <div className="bg-surface border border-line rounded-2xl p-5 shadow-soft">
-              <h2 className="mb-4 text-sm font-semibold">Top pays</h2>
-              {topCountries.length === 0 ? (
-                <p className="text-xs text-muted">Aucune donnée de pays pour le moment.</p>
-              ) : (
-                <ul className="space-y-3">
-                  {topCountries.map((c) => {
-                    const dominant = PLAN_ORDER.reduce(
-                      (a, b) => ((c.plans[a] ?? 0) >= (c.plans[b] ?? 0) ? a : b),
-                      "free"
-                    );
-                    return (
-                      <li key={c.country}>
-                        <div className="mb-1 flex justify-between text-sm">
-                          <span className="truncate pr-3">{c.country}</span>
-                          <span className="text-muted">{c.total}</span>
-                        </div>
-                        <div className="h-2 rounded-full bg-soft">
-                          <div
-                            className="h-2 rounded-full transition-all duration-500"
-                            style={{ width: `${(c.total / maxCountry) * 100}%`, background: PLAN_COLORS[dominant] }}
-                          />
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-surface border border-line rounded-2xl shadow-soft overflow-hidden">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4">
-            <h2 className="text-sm font-semibold">
-              Utilisateurs{" "}
-              <span className="text-muted font-normal">
-                ({filtered.length} affiché{filtered.length > 1 ? "s" : ""} sur {rows.length})
-              </span>
-            </h2>
-            <div className="flex items-center gap-2">
-              {hasFilters && (
-                <button
-                  onClick={resetFilters}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-xs text-muted hover:border-fractal-ocre hover:text-fractal-terra transition-colors"
+      {filtered.length === 0 ? (
+        <EmptyState
+          icon={<Users size={22} aria-hidden />}
+          title="Aucun utilisateur ne correspond"
+          description="Modifie ta recherche ou tes filtres."
+          action={hasFilters ? <Button variant="secondary" onClick={reset}>Réinitialiser les filtres</Button> : undefined}
+        />
+      ) : (
+        <>
+          {/* Mobile : cartes */}
+          <ul className="space-y-2.5 md:hidden">
+            {shown.map((r) => (
+              <li key={r.id}>
+                <Link
+                  href={`/admin/users/${r.id}`}
+                  className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-3.5 shadow-soft transition-colors hover:border-fractal-ocre/60"
                 >
-                  <FilterX size={12} /> Réinitialiser
-                </button>
-              )}
-              <button
-                onClick={exportCsv}
-                className="inline-flex items-center gap-1.5 rounded-full bg-fractal-ocre hover:bg-fractal-terra px-3 py-1.5 text-xs font-semibold text-white transition-colors"
-              >
-                <Download size={12} /> Export CSV
-              </button>
-            </div>
-          </div>
+                  <ProfileAvatar profile={r} size={44} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold">@{r.slug}</p>
+                    <p className="truncate text-xs text-muted">
+                      {r.display_name}
+                      {r.country ? ` · ${r.country}` : ""}
+                    </p>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <PlanDot plan={r.plan} />
+                      {r.role === "admin" && <RoleBadge role={r.role} />}
+                      <span className="text-[11px] text-muted">
+                        {r.links_count} lien{r.links_count > 1 ? "s" : ""} · {fmt(r.clicks_total)} clic{r.clicks_total > 1 ? "s" : ""}
+                      </span>
+                    </div>
+                  </div>
+                  <ChevronRight size={18} className="shrink-0 text-muted" aria-hidden />
+                </Link>
+              </li>
+            ))}
+          </ul>
 
-          <div className="grid gap-3 border-b border-line bg-soft/40 px-5 py-4 sm:grid-cols-2 lg:grid-cols-5">
-            <label className="relative lg:col-span-2">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-              <input
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="Rechercher un pseudo ou un nom…"
-                className={`${inputCls} w-full pl-9`}
-              />
-            </label>
-            <select value={country} onChange={(e) => setCountry(e.target.value)} className={`${inputCls} w-full`} aria-label="Filtrer par pays">
-              <option value="all">Tous les pays</option>
-              {countryOptions.map(([c, n]) => (
-                <option key={c} value={c}>
-                  {c} ({n})
-                </option>
-              ))}
-            </select>
-            <select value={plan} onChange={(e) => setPlan(e.target.value)} className={`${inputCls} w-full`} aria-label="Filtrer par plan">
-              <option value="all">Tous les plans</option>
-              {PLAN_ORDER.map((p) => (
-                <option key={p} value={p}>
-                  {PLAN_LABELS[p]}
-                </option>
-              ))}
-            </select>
-            <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)} className={`${inputCls} w-full`} aria-label="Trier">
-              {SORTS.map((s) => (
-                <option key={s.id} value={s.id}>
-                  Tri : {s.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="overflow-x-auto">
+          {/* Ordinateur : tableau */}
+          <Card padded={false} className="hidden overflow-hidden md:block">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-line text-xs text-muted">
                   <th className="px-5 py-3 font-medium">Utilisateur</th>
                   <th className="px-3 py-3 font-medium">Pays</th>
-                  <th className="px-3 py-3 font-medium text-center">Liens</th>
-                  <th className="px-3 py-3 font-medium text-center">Clics</th>
+                  <th className="px-3 py-3 text-center font-medium">Liens</th>
+                  <th className="px-3 py-3 text-center font-medium">Clics</th>
                   <th className="px-3 py-3 font-medium">Plan</th>
-                  <th className="px-3 py-3 font-medium">Thème</th>
                   <th className="px-3 py-3 font-medium">Rôle</th>
                   <th className="px-3 py-3 font-medium">Inscrit le</th>
-                  <th className="px-5 py-3 font-medium text-right">Actions</th>
+                  <th className="w-10 px-3 py-3" aria-label="Ouvrir" />
                 </tr>
               </thead>
               <tbody>
-                {filtered.length === 0 ? (
-                  <tr>
-                    <td colSpan={9} className="px-5 py-12 text-center">
-                      <p className="text-sm font-semibold mb-1">Aucun utilisateur ne correspond</p>
-                      <p className="text-xs text-muted mb-3">Modifie ta recherche ou tes filtres.</p>
-                      <button
-                        onClick={resetFilters}
-                        className="rounded-full border border-line px-4 py-2 text-xs text-muted hover:border-fractal-ocre hover:text-fractal-terra transition-colors"
-                      >
-                        Réinitialiser les filtres
-                      </button>
+                {shown.map((r) => (
+                  <tr
+                    key={r.id}
+                    onClick={() => router.push(`/admin/users/${r.id}`)}
+                    className="cursor-pointer border-b border-line/60 transition-colors last:border-0 hover:bg-soft/60"
+                  >
+                    <td className="px-5 py-3">
+                      <Link href={`/admin/users/${r.id}`} onClick={(e) => e.stopPropagation()} className="flex items-center gap-3">
+                        <ProfileAvatar profile={r} size={34} />
+                        <span className="min-w-0">
+                          <span className="block truncate font-medium">@{r.slug}</span>
+                          <span className="block truncate text-xs text-muted">{r.display_name}</span>
+                        </span>
+                      </Link>
+                    </td>
+                    <td className="px-3 py-3 text-muted">{r.country ?? "—"}</td>
+                    <td className="px-3 py-3 text-center">{r.links_count}</td>
+                    <td className="px-3 py-3 text-center">{fmt(r.clicks_total)}</td>
+                    <td className="px-3 py-3">
+                      <PlanDot plan={r.plan} />
+                    </td>
+                    <td className="px-3 py-3">
+                      <RoleBadge role={r.role} />
+                    </td>
+                    <td className="px-3 py-3 text-xs text-muted">{fmtDate(r.created_at)}</td>
+                    <td className="px-3 py-3 text-muted">
+                      <ChevronRight size={16} aria-hidden />
                     </td>
                   </tr>
-                ) : (
-                  filtered.map((r) => (
-                    <tr key={r.id} className="border-b border-line/60 last:border-0 hover:bg-soft/60 transition-colors">
-                      <td className="px-5 py-3">
-                        <div className="font-medium">@{r.slug}</div>
-                        <div className="text-xs text-muted">{r.display_name}</div>
-                      </td>
-                      <td className="px-3 py-3 text-muted">{r.country ?? "—"}</td>
-                      <td className="px-3 py-3 text-center">{r.links_count}</td>
-                      <td className="px-3 py-3 text-center">{r.clicks_total}</td>
-                      <td className="px-3 py-3">
-                        <span className="inline-flex items-center gap-1.5 text-xs font-medium">
-                          <span className="h-2 w-2 rounded-full" style={{ background: PLAN_COLORS[r.plan] ?? PLAN_COLORS.free }} />
-                          {PLAN_LABELS[r.plan] ?? r.plan}
-                        </span>
-                      </td>
-                      <td className="px-3 py-3 text-xs text-muted">{r.theme_id}</td>
-                      <td className="px-3 py-3">
-                        <span
-                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                            r.role === "admin" ? "bg-fractal-ocre/10 text-fractal-terra" : "bg-soft text-muted"
-                          }`}
-                        >
-                          {r.role === "admin" && <Crown size={11} />}
-                          {r.role}
-                        </span>
-                      </td>
-                      <td className="px-3 py-3 text-xs text-muted">
-                        {new Date(r.created_at).toLocaleDateString("fr-FR")}
-                      </td>
-                      <td className="px-5 py-3">
-                        <div className="flex items-center justify-end gap-1">
-                          <a
-                            href={`/@${r.slug}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            aria-label={`Voir la page de ${r.slug}`}
-                            className="p-1.5 rounded-md text-muted hover:bg-soft hover:text-fractal-terra transition-colors"
-                          >
-                            <ExternalLink size={15} />
-                          </a>
-                          <button
-                            onClick={() => toggleRole(r)}
-                            aria-label="Changer le rôle"
-                            className="p-1.5 rounded-md text-muted hover:bg-soft hover:text-fractal-ocre transition-colors"
-                          >
-                            <Crown size={15} />
-                          </button>
-                          <button
-                            onClick={() => deleteUser(r)}
-                            aria-label="Supprimer"
-                            className="p-1.5 rounded-md text-muted hover:bg-red-50 hover:text-red-600 transition-colors"
-                          >
-                            <Trash2 size={15} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
+                ))}
               </tbody>
             </table>
-          </div>
-        </div>
+          </Card>
 
-        <div className="rounded-2xl border border-dashed border-line bg-soft/50 p-6 text-center">
-          <p className="text-sm font-semibold">Revenus Mobile Money</p>
-          <p className="mt-1 text-xs text-muted">
-            Le tableau des commissions (plans Pro/Business + transactions) apparaîtra ici dès l'intégration Sebpay.
-          </p>
-        </div>
-      </div>
-      {toastNode}
-    </div>
+          {filtered.length > shown.length && (
+            <div className="mt-4 flex justify-center">
+              <Button variant="secondary" onClick={() => setLimit((l) => l + PAGE)}>
+                Afficher {Math.min(PAGE, filtered.length - shown.length)} de plus
+              </Button>
+            </div>
+          )}
+        </>
+      )}
+    </>
   );
 }
 
-===== FILE:  =====
+===== FILE: src/app/api/click/route.ts =====
 
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabaseClient";
@@ -974,8 +902,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
-
-===== FILE:  =====
+===== FILE: src/app/api/keep-alive/route.ts =====
 
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabaseClient';
@@ -999,8 +926,7 @@ export async function GET() {
     }, { status: 500 });
   }
 }
-
-===== FILE:  =====
+===== FILE: src/app/api/newsletter/route.ts =====
 
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -1024,8 +950,7 @@ export async function POST(req: Request) {
   if (error && error.code !== "23505") return NextResponse.json({ error: "failed" }, { status: 500 });
   return NextResponse.redirect(new URL(`/@${slug}?subscribed=1`, req.url), 303);
 }
-
-===== FILE:  =====
+===== FILE: src/app/api/profile/theme/route.ts =====
 
 import { NextResponse } from "next/server";
 import { canUse, canUseTheme, requiredPlanForTheme, sanitizeCustomTokens } from "@/lib/entitlements";
@@ -1079,8 +1004,25 @@ export async function POST(req: Request) {
   }
   return NextResponse.json({ ok: true, plan, themeId });
 }
+===== FILE: src/app/api/slug-check/route.ts =====
 
-===== FILE:  =====
+import { NextResponse } from "next/server";
+import { isReserved } from "@/lib/reserved";
+import { createPublicClient } from "@/lib/supabase/public";
+
+export const dynamic = "force-dynamic";
+
+const SLUG = /^[a-z0-9][a-z0-9_.-]{2,29}$/;
+
+/** GET /api/slug-check?slug=xxx → { available, reason? } (respecte la RLS via la RPC publique). */
+export async function GET(req: Request) {
+  const slug = (new URL(req.url).searchParams.get("slug") ?? "").toLowerCase();
+  if (!SLUG.test(slug)) return NextResponse.json({ available: false, reason: "invalid" });
+  if (isReserved(slug)) return NextResponse.json({ available: false, reason: "reserved" });
+  const { data } = await createPublicClient().rpc("get_public_profile", { p_slug: slug });
+  return NextResponse.json({ available: !data, reason: data ? "taken" : undefined });
+}
+===== FILE: src/app/api/view/route.ts =====
 
 import { NextResponse } from "next/server";
 import { createPublicClient } from "@/lib/supabase/public";
@@ -1095,8 +1037,7 @@ export async function POST(req: Request) {
   if (error) return NextResponse.json({ error: "failed" }, { status: 500 });
   return NextResponse.json({ ok: true });
 }
-
-===== FILE:  =====
+===== FILE: src/app/auth/layout.tsx =====
 
 import type { Metadata } from "next";
 
@@ -1109,85 +1050,223 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
   return children;
 }
 
-===== FILE:  =====
+===== FILE: src/app/auth/page.tsx =====
 
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowRight, ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, KeyRound, Loader2, Mail, Smartphone } from "lucide-react";
+import { FaGoogle } from "react-icons/fa6";
 import { supabase } from "@/lib/supabaseClient";
 import { Logo } from "@/components/landing/ui";
 import { isReserved } from "@/lib/reserved";
 
+type Method = "password" | "magic" | "sms";
+
+const FRENCH_ERRORS: [RegExp, string][] = [
+  [/invalid login credentials/i, "Email ou mot de passe incorrect."],
+  [/email not confirmed/i, "Confirme d'abord ton adresse email (voir ta boîte mail)."],
+  [/user already registered/i, "Un compte existe déjà avec cet email."],
+  [/phone number .* invalid|invalid phone/i, "Numéro invalide. Format international : +242…"],
+  [/provider is not enabled|sms provider/i, "Connexion par SMS non activée pour le moment."],
+  [/token has expired/i, "Ce code a expiré. Demande un nouveau."],
+  [/invalid otp/i, "Code invalide. Vérifie les 6 chiffres."],
+  [/rate limit/i, "Trop de tentatives. Attends une minute."],
+  [/password should be/i, "Mot de passe : 6 caractères minimum."],
+];
+const fr = (msg: string) => FRENCH_ERRORS.find(([re]) => re.test(msg))?.[1] ?? msg;
+const digits = (v: string) => v.replace(/[^\d+]/g, "");
+
 export default function AuthPage() {
+  return (
+    <Suspense fallback={null}>
+      <AuthInner />
+    </Suspense>
+  );
+}
+
+function AuthInner() {
+  const router = useRouter();
+  const params = useSearchParams();
+  const [method, setMethod] = useState<Method>("password");
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [username, setUsername] = useState("");
+  const [showPwd, setShowPwd] = useState(false);
+  const [username, setUsername] = useState(params.get("slug") ?? "");
+  const [phone, setPhone] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [resetMode, setResetMode] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const router = useRouter();
+  const [info, setInfo] = useState("");
+  const plan = params.get("plan");
 
-  const generateSlug = (email: string): string => {
-    const base = email.split("@")[0].toLowerCase().replace(/[^a-z0-9]/g, "");
-    const suffix = Math.random().toString(36).substring(2, 6);
-    return `${base}${suffix}`;
+  /* Profil manquant (connexion Google / OAuth) : création automatique. */
+  useEffect(() => {
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const { data: rows } = await supabase.from("profiles").select("id").eq("user_id", session.user.id);
+      if ((rows ?? []).length === 0) {
+        const base =
+          (session.user.email ?? "user").split("@")[0].toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 20) || "user";
+        let slug = base;
+        let i = 0;
+        for (;;) {
+          const taken = isReserved(slug);
+          const { data: existing } = await supabase.from("profiles").select("id").eq("slug", slug).maybeSingle();
+          if (!taken && !existing) break;
+          slug = `${base}${++i}`;
+        }
+        await supabase.from("profiles").insert({
+          user_id: session.user.id,
+          slug,
+          display_name: session.user.user_metadata?.full_name ?? slug,
+          bio: "Nouveau sur Ndeletik 🌍",
+          avatar_url:
+            session.user.user_metadata?.avatar_url ?? `https://api.dicebear.com/7.x/avataaars/svg?seed=${slug}`,
+        });
+      }
+      if (params.get("reset") === "1") setResetMode(true);
+    })();
+  }, [params]);
+
+  const generateSlug = (mail: string) => {
+    const base = mail.split("@")[0].toLowerCase().replace(/[^a-z0-9]/g, "");
+    return `${base}${Math.random().toString(36).substring(2, 6)}`;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const submitPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
-
+    setInfo("");
     try {
       if (isLogin) {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       } else {
-        const slug = username ? username.toLowerCase().replace(/\s+/g, "") : generateSlug(email);
-        
-        if (isReserved(slug)) throw new Error("Ce nom d'utilisateur est réservé.");
-
-        const { data: authData, error: authError } = await supabase.auth.signUp({ email, password });
-        if (authError) throw authError;
-
-        if (authData.user) {
-          const { error: profileError } = await supabase.from("profiles").insert({
-            user_id: authData.user.id,
+        const slug = username.trim().toLowerCase().replace(/\s+/g, "") || generateSlug(email);
+        if (isReserved(slug)) throw new Error("Ce pseudo est réservé.");
+        const { data, error } = await supabase.auth.signUp({ email, password });
+        if (error) throw error;
+        if (data.user) {
+          const { error: pe } = await supabase.from("profiles").insert({
+            user_id: data.user.id,
             slug,
             display_name: slug,
             bio: "Nouveau sur Ndeletik 🌍",
             avatar_url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${slug}`,
           });
-          
-          if (profileError) {
-            if (profileError.code === "23505") throw new Error("Ce pseudo est déjà pris, choisis-en un autre.");
-            if (profileError.message.includes("slug_reserved")) throw new Error("Ce pseudo est réservé.");
-            throw profileError;
+          if (pe) {
+            if (pe.code === "23505") throw new Error("Ce pseudo est déjà pris, choisis-en un autre.");
+            if (pe.message.includes("slug_reserved")) throw new Error("Ce pseudo est réservé.");
+            throw pe;
           }
         }
       }
-      
       router.push("/dashboard");
       router.refresh();
     } catch (err: any) {
-      setError(err.message || "Une erreur est survenue");
+      setError(fr(err.message));
     } finally {
       setLoading(false);
     }
   };
 
-  const inputCls = "w-full px-4 py-3 bg-bg border border-line rounded-xl text-ink placeholder:text-muted/70 focus:outline-none focus:border-fractal-ocre transition-colors";
+  const submitMagic = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    setInfo("");
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: `${window.location.origin}/dashboard` },
+    });
+    setLoading(false);
+    if (error) setError(fr(error.message));
+    else setInfo("Lien de connexion envoyé ! Ouvre tes emails.");
+  };
+
+  const submitSms = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    setInfo("");
+    const { error } = await supabase.auth.signInWithOtp({ phone: digits(phone) });
+    setLoading(false);
+    if (error) setError(fr(error.message));
+    else {
+      setOtpSent(true);
+      setInfo("Code envoyé par SMS.");
+    }
+  };
+
+  const verifySms = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    const { error } = await supabase.auth.verifyOtp({ phone: digits(phone), token: otpCode, type: "sms" });
+    setLoading(false);
+    if (error) setError(fr(error.message));
+    else {
+      router.push("/dashboard");
+      router.refresh();
+    }
+  };
+
+  const google = async () => {
+    setError("");
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/auth` },
+    });
+    if (error) setError(fr(error.message));
+  };
+
+  const forgot = async () => {
+    setLoading(true);
+    setError("");
+    setInfo("");
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth?reset=1`,
+    });
+    setLoading(false);
+    if (error) setError(fr(error.message));
+    else setInfo("Email de réinitialisation envoyé. Suis le lien.");
+  };
+
+  const submitReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    setLoading(false);
+    if (error) setError(fr(error.message));
+    else {
+      setInfo("Mot de passe mis à jour.");
+      router.push("/dashboard");
+      router.refresh();
+    }
+  };
+
+  const inputCls =
+    "w-full px-4 py-3 bg-bg border border-line rounded-xl text-ink placeholder:text-muted/70 focus:outline-none focus:border-fractal-ocre transition-colors";
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-bg relative overflow-hidden">
-      <Link href="/" className="absolute top-6 left-6 flex items-center gap-2 text-sm text-muted hover:text-fractal-terra transition-colors">
-        <ArrowLeft size={16} /> Retour à l'accueil
+      <Link
+        href="/"
+        className="absolute top-6 left-6 flex items-center gap-2 text-sm text-muted hover:text-fractal-terra transition-colors"
+      >
+        <ArrowLeft size={16} /> Retour à l&apos;accueil
       </Link>
-
       <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-fractal-or/20 rounded-full blur-3xl pointer-events-none" />
 
       <motion.div
@@ -1196,105 +1275,269 @@ export default function AuthPage() {
         transition={{ duration: 0.5 }}
         className="w-full max-w-md bg-surface border border-line rounded-3xl p-8 shadow-soft relative z-10"
       >
-        <div className="text-center mb-8">
+        <div className="text-center mb-6">
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-gradient-to-br from-fractal-or via-fractal-ocre to-fractal-terra mb-4 shadow-soft">
             <Logo className="h-6 w-6 brightness-0 invert" />
           </div>
           <h1 className="text-3xl font-display font-extrabold text-ink mb-2">
-            {isLogin ? "Bon retour" : "Rejoins Ndeletik"}
+            {resetMode ? "Nouveau mot de passe" : isLogin && method === "password" ? "Bon retour" : "Rejoins Ndeletik"}
           </h1>
           <p className="text-sm text-muted">
-            {isLogin ? "Connecte-toi pour gérer tes liens" : "Crée ta page de liens unique en 2 minutes"}
+            {resetMode
+              ? "Choisis un nouveau mot de passe."
+              : "Ta page de liens unique, en 2 minutes."}
           </p>
+          {plan && !resetMode && (
+            <span className="mt-2 inline-block rounded-full bg-fractal-ocre/10 px-3 py-1 text-xs font-semibold text-fractal-terra">
+              Plan {plan} sélectionné
+            </span>
+          )}
         </div>
 
         {error && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-4 p-3 bg-fractal-terra/10 border border-fractal-terra/30 rounded-xl text-fractal-terra text-sm"
-          >
+          <div className="mb-4 p-3 bg-fractal-terra/10 border border-fractal-terra/30 rounded-xl text-fractal-terra text-sm">
             {error}
-          </motion.div>
+          </div>
+        )}
+        {info && (
+          <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-700 text-sm">
+            {info}
+          </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {!isLogin && (
-            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>
-              <label className="block text-sm font-medium text-ink mb-1">Nom d'utilisateur (optionnel)</label>
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className={inputCls}
-                placeholder="Laisser vide pour génération automatique"
-              />
-              <p className="text-xs text-muted mt-1">Si laissé vide, un pseudo unique sera généré automatiquement.</p>
-            </motion.div>
-          )}
-
-          <div>
-            <label className="block text-sm font-medium text-ink mb-1">Email</label>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className={inputCls}
-              placeholder="ton@email.com"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-ink mb-1">Mot de passe</label>
+        {resetMode ? (
+          <form onSubmit={submitReset} className="space-y-4">
             <input
               type="password"
               required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              minLength={6}
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
               className={inputCls}
-              placeholder="••••••••"
+              placeholder="Nouveau mot de passe"
+              autoComplete="new-password"
             />
-          </div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-3 bg-gradient-to-r from-fractal-or via-fractal-ocre to-fractal-terra text-white font-semibold rounded-xl disabled:opacity-50"
+            >
+              {loading ? <Loader2 size={18} className="mx-auto animate-spin" /> : "Mettre à jour"}
+            </button>
+          </form>
+        ) : (
+          <>
+            {/* Sélecteur de méthode */}
+            <div className="mb-5 grid grid-cols-3 gap-1 rounded-full bg-soft p-1 text-xs font-medium" role="tablist">
+              {(
+                [
+                  ["password", "Mot de passe", KeyRound],
+                  ["magic", "Lien email", Mail],
+                  ["sms", "Code SMS", Smartphone],
+                ] as [Method, string, any][]
+              ).map(([m, label, Icon]) => (
+                <button
+                  key={m}
+                  role="tab"
+                  aria-selected={method === m}
+                  onClick={() => {
+                    setMethod(m);
+                    setError("");
+                    setInfo("");
+                    setOtpSent(false);
+                  }}
+                  className={`flex items-center justify-center gap-1.5 rounded-full py-2 transition ${
+                    method === m ? "bg-surface text-ink shadow-soft" : "text-muted hover:text-ink"
+                  }`}
+                >
+                  <Icon size={13} /> {label}
+                </button>
+              ))}
+            </div>
 
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            type="submit"
-            disabled={loading}
-            className="w-full py-3 bg-gradient-to-r from-fractal-or via-fractal-ocre to-fractal-terra hover:opacity-90 text-white font-semibold rounded-xl flex items-center justify-center gap-2 transition disabled:opacity-50"
-          >
-            {loading ? (
-              <>
-                <Loader2 size={18} className="animate-spin" />
-                Chargement...
-              </>
-            ) : (
-              <>
-                {isLogin ? "Se connecter" : "Créer mon compte"}
-                <ArrowRight size={18} />
-              </>
+            {method === "password" && (
+              <form onSubmit={submitPassword} className="space-y-4">
+                {!isLogin && (
+                  <div>
+                    <label className="block text-sm font-medium text-ink mb-1">Nom d&apos;utilisateur (optionnel)</label>
+                    <input
+                      type="text"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      className={inputCls}
+                      placeholder="Laisser vide = généré automatiquement"
+                      autoComplete="username"
+                    />
+                  </div>
+                )}
+                <div>
+                  <label className="block text-sm font-medium text-ink mb-1">Email</label>
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className={inputCls}
+                    placeholder="ton@email.com"
+                    autoComplete="email"
+                    inputMode="email"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-ink mb-1">Mot de passe</label>
+                  <div className="relative">
+                    <input
+                      type={showPwd ? "text" : "password"}
+                      required
+                      minLength={6}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className={`${inputCls} pr-11`}
+                      placeholder="••••••••"
+                      autoComplete={isLogin ? "current-password" : "new-password"}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPwd((v) => !v)}
+                      aria-label={showPwd ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-ink"
+                    >
+                      {showPwd ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+                {isLogin && (
+                  <button
+                    type="button"
+                    onClick={forgot}
+                    className="text-xs text-fractal-terra hover:text-fractal-ocre transition-colors"
+                  >
+                    Mot de passe oublié ?
+                  </button>
+                )}
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-3 bg-gradient-to-r from-fractal-or via-fractal-ocre to-fractal-terra text-white font-semibold rounded-xl disabled:opacity-50"
+                >
+                  {loading ? <Loader2 size={18} className="mx-auto animate-spin" /> : isLogin ? "Se connecter" : "Créer mon compte"}
+                </button>
+                <div className="text-center">
+                  <button
+                    type="button"
+                    onClick={() => setIsLogin((v) => !v)}
+                    className="text-sm text-fractal-terra hover:text-fractal-ocre transition-colors"
+                  >
+                    {isLogin ? "Pas encore de compte ? S'inscrire" : "Déjà un compte ? Se connecter"}
+                  </button>
+                </div>
+              </form>
             )}
-          </motion.button>
-        </form>
 
-        <div className="mt-6 text-center">
-          <button
-            onClick={() => {
-              setIsLogin(!isLogin);
-              setError("");
-            }}
-            className="text-sm text-fractal-terra hover:text-fractal-ocre transition-colors"
-          >
-            {isLogin ? "Pas encore de compte ? S'inscrire" : "Déjà un compte ? Se connecter"}
-          </button>
-        </div>
+            {method === "magic" && (
+              <form onSubmit={submitMagic} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-ink mb-1">Email</label>
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className={inputCls}
+                    placeholder="ton@email.com"
+                    autoComplete="email"
+                    inputMode="email"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-3 bg-gradient-to-r from-fractal-or via-fractal-ocre to-fractal-terra text-white font-semibold rounded-xl disabled:opacity-50"
+                >
+                  {loading ? <Loader2 size={18} className="mx-auto animate-spin" /> : "Recevoir le lien de connexion"}
+                </button>
+                <p className="text-xs text-muted text-center">Sans mot de passe : un clic dans ton email et tu es connecté.</p>
+              </form>
+            )}
+
+            {method === "sms" && (
+              <form onSubmit={otpSent ? verifySms : submitSms} className="space-y-4">
+                {!otpSent ? (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-ink mb-1">Numéro de téléphone</label>
+                      <input
+                        type="tel"
+                        required
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        className={inputCls}
+                        placeholder="+242 06 000 00 00"
+                        autoComplete="tel"
+                        inputMode="tel"
+                      />
+                      <p className="text-xs text-muted mt-1">Format international. Un code à 6 chiffres sera envoyé.</p>
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="w-full py-3 bg-gradient-to-r from-fractal-or via-fractal-ocre to-fractal-terra text-white font-semibold rounded-xl disabled:opacity-50"
+                    >
+                      {loading ? <Loader2 size={18} className="mx-auto animate-spin" /> : "Recevoir le code"}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-ink mb-1">Code à 6 chiffres</label>
+                      <input
+                        type="text"
+                        required
+                        inputMode="numeric"
+                        maxLength={6}
+                        value={otpCode}
+                        onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
+                        className={`${inputCls} text-center text-2xl tracking-[0.5em]`}
+                        placeholder="000000"
+                        autoComplete="one-time-code"
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={loading || otpCode.length !== 6}
+                      className="w-full py-3 bg-gradient-to-r from-fractal-or via-fractal-ocre to-fractal-terra text-white font-semibold rounded-xl disabled:opacity-50"
+                    >
+                      {loading ? <Loader2 size={18} className="mx-auto animate-spin" /> : "Vérifier et entrer"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setOtpSent(false)}
+                      className="w-full text-xs text-muted hover:text-ink transition-colors"
+                    >
+                      Changer de numéro
+                    </button>
+                  </>
+                )}
+              </form>
+            )}
+
+            <div className="my-5 flex items-center gap-3 text-xs text-muted">
+              <span className="h-px flex-1 bg-line" /> ou <span className="h-px flex-1 bg-line" />
+            </div>
+            <button
+              type="button"
+              onClick={google}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-line bg-surface text-sm font-semibold text-ink hover:border-fractal-ocre transition-colors"
+            >
+              <FaGoogle size={16} /> Continuer avec Google
+            </button>
+          </>
+        )}
       </motion.div>
     </div>
   );
 }
-
-===== FILE:  =====
+===== FILE: src/app/conditions/page.tsx =====
 
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
@@ -1425,8 +1668,7 @@ export default function ConditionsPage() {
     </main>
   );
 }
-
-===== FILE:  =====
+===== FILE: src/app/confidentialite/page.tsx =====
 
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
@@ -1548,8 +1790,7 @@ export default function ConfidentialitePage() {
     </main>
   );
 }
-
-===== FILE:  =====
+===== FILE: src/app/contact/page.tsx =====
 
 import Link from "next/link";
 import { Mail, MessageCircle, ArrowLeft, Clock, HelpCircle } from "lucide-react";
@@ -1641,8 +1882,7 @@ export default function ContactPage() {
     </main>
   );
 }
-
-===== FILE:  =====
+===== FILE: src/app/dashboard/layout.tsx =====
 
 import type { Metadata } from "next";
 import { DashboardProvider } from "@/components/dashboard/DashboardProvider";
@@ -1661,7 +1901,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   );
 }
 
-===== FILE:  =====
+===== FILE: src/app/dashboard/page.tsx =====
 
 "use client";
 
@@ -1799,7 +2039,7 @@ export default function LinksPage() {
   );
 }
 
-===== FILE:  =====
+===== FILE: src/app/dashboard/profile/layout.tsx =====
 
 import type { Metadata } from "next";
 
@@ -1812,7 +2052,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   return children;
 }
 
-===== FILE:  =====
+===== FILE: src/app/dashboard/profile/page.tsx =====
 
 "use client";
 
@@ -1884,7 +2124,7 @@ export default function ProfilePage() {
   );
 }
 
-===== FILE:  =====
+===== FILE: src/app/dashboard/sections/page.tsx =====
 
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
@@ -1921,8 +2161,7 @@ export default async function SectionsPage() {
     />
   );
 }
-
-===== FILE:  =====
+===== FILE: src/app/dashboard/stats/layout.tsx =====
 
 import type { Metadata } from "next";
 
@@ -1935,7 +2174,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   return children;
 }
 
-===== FILE:  =====
+===== FILE: src/app/dashboard/stats/page.tsx =====
 
 "use client";
 
@@ -2178,7 +2417,7 @@ function Kpi({ icon, label, value, small }: { icon: React.ReactNode; label: stri
   );
 }
 
-===== FILE:  =====
+===== FILE: src/app/dashboard/themes/page.tsx =====
 
 import { redirect } from "next/navigation";
 import { ThemeSelector } from "@/components/editor/ThemeSelector";
@@ -2228,8 +2467,7 @@ export default async function ThemesPage() {
     />
   );
 }
-
-===== FILE:  =====
+===== FILE: src/app/demo/page.tsx =====
 
 import Link from "next/link";
 import { Sparkles, ArrowLeft } from "lucide-react";
@@ -2297,7 +2535,7 @@ export default function DemoPage() {
         <footer className="mt-16 text-center">
           <p className="text-sm text-muted mb-4">Cette page pourrait être la tienne en 5 minutes.</p>
           <Link
-            href="/auth"
+            href="/auth?mode=signup"
             className="inline-flex items-center justify-center rounded-full bg-ink px-7 py-3.5 text-sm font-medium text-bg shadow-lg transition hover:opacity-90"
           >
             Créer ma page gratuite
@@ -2307,8 +2545,7 @@ export default function DemoPage() {
     </main>
   );
 }
-
-===== FILE:  =====
+===== FILE: src/app/globals.css =====
 
 @import "tailwindcss";
 
@@ -2370,8 +2607,7 @@ h1, h2, h3, h4 {
     transition: none !important;
   }
 }
-
-===== FILE:  =====
+===== FILE: src/app/go/[id]/route.ts =====
 
 import { NextRequest, NextResponse } from "next/server";
 import { safeUrl } from "@/lib/safe-url";
@@ -2425,8 +2661,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
   res.headers.set("Cache-Control", "no-store");
   return res;
 }
-
-===== FILE:  =====
+===== FILE: src/app/layout.tsx =====
 
 import type { Metadata } from "next";
 import { Montserrat, Poppins } from "next/font/google";
@@ -2474,8 +2709,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     </html>
   );
 }
-
-===== FILE:  =====
+===== FILE: src/app/not-found.tsx =====
 
 import Link from "next/link";
 import { Compass } from "lucide-react";
@@ -2509,8 +2743,7 @@ export default function NotFound() {
     </main>
   );
 }
-
-===== FILE:  =====
+===== FILE: src/app/onboarding/page.tsx =====
 
 "use client";
 
@@ -2863,8 +3096,7 @@ export default function OnboardingPage() {
     </div>
   );
 }
-
-===== FILE:  =====
+===== FILE: src/app/opengraph-image.tsx =====
 
 import { landingOg, OG_SIZE, OG_TYPE } from "@/lib/og";
 
@@ -2876,7 +3108,7 @@ export default function Image() {
   return landingOg();
 }
 
-===== FILE:  =====
+===== FILE: src/app/page.tsx =====
 
 import { Navbar } from "@/components/landing/Navbar";
 import { Hero } from "@/components/landing/Hero";
@@ -2908,8 +3140,7 @@ export default function Page() {
     </>
   );
 }
-
-===== FILE:  =====
+===== FILE: src/app/preview/page.tsx =====
 
 // src/app/preview/page.tsx
 import { ProfileRenderer } from "@/components/profile/ProfileRenderer";
@@ -2923,16 +3154,14 @@ export default async function PreviewPage({ searchParams }: { searchParams: Prom
   const themeId = sp.theme ?? ALL_THEMES[0]?.id ?? "fallback";
   return <ProfileRenderer profile={{ ...SAMPLE_PROFILE, themeId }} plan={plan} preview />;
 }
-
-===== FILE:  =====
+===== FILE: src/app/preview/themes/page.tsx =====
 
 // src/app/preview/themes/page.tsx
 import { ALL_THEMES } from "@/lib/themes/registry";
 export default function ThemesGallery() {
   return (<main style={{ padding: 24, background: "#eee", minHeight: "100vh", fontFamily: "system-ui" }}><h1 style={{ marginBottom: 16 }}>Thèmes Ndeletik ({ALL_THEMES.length})</h1><div style={{ display: "flex", flexWrap: "wrap", gap: 24 }}>{ALL_THEMES.map((t) => (<figure key={t.id} style={{ margin: 0 }}><iframe src={`/preview?theme=${t.id}&plan=business`} title={t.name} style={{ width: 375, height: 760, border: "8px solid #111", borderRadius: 32, background: "#fff" }} /><figcaption style={{ marginTop: 8, fontSize: 14 }}><strong>{t.name}</strong> · {t.plan} · <code>{t.id}</code></figcaption></figure>))}</div></main>);
 }
-
-===== FILE:  =====
+===== FILE: src/app/twitter-image.tsx =====
 
 import { landingOg, OG_SIZE, OG_TYPE } from "@/lib/og";
 
@@ -2944,7 +3173,338 @@ export default function Image() {
   return landingOg();
 }
 
-===== FILE:  =====
+===== FILE: src/components/admin/AdminProvider.tsx =====
+
+"use client";
+
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
+import { fmtDate, type AdminRow } from "@/lib/admin-types";
+import { ToastProvider, useToast } from "@/components/dashboard/Toast";
+
+type Status = "loading" | "denied" | "ready";
+
+type Ctx = {
+  status: Status;
+  meId: string | null;
+  rows: AdminRow[];
+  /** Admin → utilisateur ou l'inverse (concerne tous les profils du compte). */
+  toggleRole: (r: AdminRow) => Promise<boolean>;
+  /** Supprime le profil ; supprime aussi le compte s'il n'en reste aucun autre. */
+  deleteUser: (r: AdminRow) => Promise<boolean>;
+  exportCsv: (list: AdminRow[]) => void;
+};
+
+const AdminCtx = createContext<Ctx | null>(null);
+
+export function useAdmin(): Ctx {
+  const ctx = useContext(AdminCtx);
+  if (!ctx) throw new Error("useAdmin doit être utilisé dans <AdminProvider>");
+  return ctx;
+}
+
+export function AdminProvider({ children }: { children: ReactNode }) {
+  return (
+    <ToastProvider>
+      <Inner>{children}</Inner>
+    </ToastProvider>
+  );
+}
+
+function Inner({ children }: { children: ReactNode }) {
+  const router = useRouter();
+  const { toast } = useToast();
+  const [status, setStatus] = useState<Status>("loading");
+  const [meId, setMeId] = useState<string | null>(null);
+  const [rows, setRows] = useState<AdminRow[]>([]);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return router.replace("/auth");
+
+      const [{ data: profs }, { data: accs }, { data: lnks }] = await Promise.all([
+        supabase.from("profiles").select("id, user_id, slug, display_name, avatar_url, country, views, theme_id, created_at"),
+        supabase.from("accounts").select("user_id, plan, role"),
+        supabase.from("links").select("profile_id, clicks"),
+      ]);
+      if (!alive) return;
+
+      const me = (accs ?? []).find((a: any) => a.user_id === session.user.id);
+      setMeId(session.user.id);
+      if (!me || me.role !== "admin") return setStatus("denied");
+
+      const accByUser = new Map<string, any>((accs ?? []).map((a: any) => [a.user_id, a]));
+      const linkAgg = new Map<string, { count: number; clicks: number }>();
+      (lnks ?? []).forEach((l: any) => {
+        const a = linkAgg.get(l.profile_id) ?? { count: 0, clicks: 0 };
+        a.count += 1;
+        a.clicks += l.clicks ?? 0;
+        linkAgg.set(l.profile_id, a);
+      });
+
+      setRows(
+        ((profs ?? []) as any[]).map((p) => ({
+          id: p.id,
+          user_id: p.user_id,
+          slug: p.slug,
+          display_name: p.display_name,
+          avatar_url: p.avatar_url ?? null,
+          country: p.country ?? null,
+          views: p.views ?? 0,
+          theme_id: p.theme_id,
+          created_at: p.created_at,
+          plan: accByUser.get(p.user_id)?.plan ?? "free",
+          role: accByUser.get(p.user_id)?.role ?? "user",
+          links_count: linkAgg.get(p.id)?.count ?? 0,
+          clicks_total: linkAgg.get(p.id)?.clicks ?? 0,
+        }))
+      );
+      setStatus("ready");
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [router]);
+
+  const toggleRole = useCallback(
+    async (r: AdminRow) => {
+      if (r.user_id === meId) {
+        toast("Tu ne peux pas modifier ton propre rôle.", false);
+        return false;
+      }
+      const next = r.role === "admin" ? "user" : "admin";
+      const { error } = await supabase.from("accounts").update({ role: next }).eq("user_id", r.user_id);
+      if (error) {
+        toast("Modification du rôle échouée", false);
+        return false;
+      }
+      setRows((prev) => prev.map((x) => (x.user_id === r.user_id ? { ...x, role: next } : x)));
+      toast(next === "admin" ? `@${r.slug} est maintenant administrateur` : `@${r.slug} n'est plus administrateur`);
+      return true;
+    },
+    [meId, toast]
+  );
+
+  const deleteUser = useCallback(
+    async (r: AdminRow) => {
+      if (r.user_id === meId) {
+        toast("Tu ne peux pas supprimer ton propre compte depuis l'admin.", false);
+        return false;
+      }
+      const { error: e1 } = await supabase.from("profiles").delete().eq("id", r.id);
+      if (e1) {
+        toast("Suppression échouée", false);
+        return false;
+      }
+      // Le compte n'est supprimé que s'il ne reste plus aucun profil pour cet utilisateur.
+      const remaining = rows.filter((x) => x.user_id === r.user_id && x.id !== r.id).length;
+      if (remaining === 0) {
+        const { error: e2 } = await supabase.from("accounts").delete().eq("user_id", r.user_id);
+        if (e2) toast("Profil supprimé, mais le compte n'a pas pu l'être", false);
+      }
+      setRows((prev) => prev.filter((x) => x.id !== r.id));
+      toast(`@${r.slug} supprimé`);
+      return true;
+    },
+    [meId, rows, toast]
+  );
+
+  const exportCsv = useCallback(
+    (list: AdminRow[]) => {
+      const header = ["pseudo", "nom_affiche", "pays", "plan", "role", "theme", "liens", "clics", "vues", "inscrit_le"];
+      const lines = list.map((r) =>
+        [r.slug, r.display_name, r.country ?? "", r.plan, r.role, r.theme_id, r.links_count, r.clicks_total, r.views, fmtDate(r.created_at)]
+          .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+          .join(",")
+      );
+      const blob = new Blob(["\uFEFF" + [header.join(","), ...lines].join("\n")], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `ndeletik-utilisateurs-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast(`Export CSV : ${list.length} ligne(s)`);
+    },
+    [toast]
+  );
+
+  const value = useMemo(
+    () => ({ status, meId, rows, toggleRole, deleteUser, exportCsv }),
+    [status, meId, rows, toggleRole, deleteUser, exportCsv]
+  );
+
+  return <AdminCtx.Provider value={value}>{children}</AdminCtx.Provider>;
+}
+
+===== FILE: src/components/admin/AdminShell.tsx =====
+
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import type { ReactNode } from "react";
+import { Shield } from "lucide-react";
+import { clsx } from "clsx";
+import { Wordmark } from "@/components/landing/ui";
+import { Badge } from "@/components/ui/Badge";
+import { Card } from "@/components/ui/Card";
+import { buttonClass } from "@/components/ui/Button";
+import { isActive } from "@/components/dashboard/nav";
+import { useAdmin } from "./AdminProvider";
+import { ADMIN_NAV, BACK_ITEM } from "./nav";
+
+/** Même cadre que le dashboard, avec un repère « Admin » : menu latéral (ordinateur), onglets (mobile). */
+export function AdminShell({ children }: { children: ReactNode }) {
+  const { status, rows } = useAdmin();
+  const pathname = usePathname();
+
+  if (status === "loading") return <Skeleton />;
+  if (status === "denied") return <Denied />;
+
+  const mobileItems = [...ADMIN_NAV, BACK_ITEM];
+
+  return (
+    <div className="min-h-screen bg-bg text-ink">
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-line bg-surface lg:flex">
+        <div className="flex items-center gap-2 px-5 pb-4 pt-5">
+          <Link href="/admin" aria-label="Ndeletik, administration">
+            <Wordmark />
+          </Link>
+          <Badge tone="brand">
+            <Shield size={10} aria-hidden /> Admin
+          </Badge>
+        </div>
+
+        <nav aria-label="Navigation de l'administration" className="mt-2 flex-1 space-y-1 px-3">
+          {ADMIN_NAV.map((item) => {
+            const active = isActive(item, pathname);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                aria-current={active ? "page" : undefined}
+                className={clsx(
+                  "relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors",
+                  active ? "bg-fractal-ocre/10 font-semibold text-fractal-terra" : "font-medium text-muted hover:bg-soft hover:text-ink"
+                )}
+              >
+                {active && (
+                  <span className="absolute inset-y-2 left-0 w-1 rounded-r-full bg-gradient-to-b from-fractal-or via-fractal-ocre to-fractal-terra" />
+                )}
+                <item.icon size={18} aria-hidden />
+                {item.label}
+                {item.href === "/admin/users" && <span className="ml-auto text-xs text-muted">{rows.length}</span>}
+              </Link>
+            );
+          })}
+        </nav>
+
+        <div className="border-t border-line p-3">
+          <Link
+            href={BACK_ITEM.href}
+            className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted transition-colors hover:bg-soft hover:text-ink"
+          >
+            <BACK_ITEM.icon size={18} aria-hidden /> {BACK_ITEM.label}
+          </Link>
+        </div>
+      </aside>
+
+      <div className="lg:pl-64">
+        <header className="sticky top-0 z-30 border-b border-line bg-bg/85 backdrop-blur">
+          <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
+            <div className="flex items-center gap-2 lg:hidden">
+              <Wordmark />
+              <Badge tone="brand">Admin</Badge>
+            </div>
+            <p className="ml-auto text-sm text-muted">
+              {new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+            </p>
+          </div>
+        </header>
+        <main className="mx-auto w-full max-w-6xl px-4 pb-28 pt-6 sm:px-6 sm:pt-8 lg:pb-12">{children}</main>
+      </div>
+
+      <nav
+        aria-label="Navigation de l'administration"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/95 backdrop-blur lg:hidden"
+        style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+      >
+        <ul className="mx-auto grid max-w-lg grid-cols-3">
+          {mobileItems.map((item) => {
+            const active = isActive(item, pathname);
+            return (
+              <li key={item.href}>
+                <Link
+                  href={item.href}
+                  aria-current={active ? "page" : undefined}
+                  className={clsx(
+                    "relative flex h-16 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors",
+                    active ? "text-fractal-terra" : "text-muted"
+                  )}
+                >
+                  {active && (
+                    <span className="absolute inset-x-6 top-0 h-0.5 rounded-b-full bg-gradient-to-r from-fractal-or via-fractal-ocre to-fractal-terra" />
+                  )}
+                  <item.icon size={20} aria-hidden />
+                  {item.short}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
+    </div>
+  );
+}
+
+function Denied() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-bg p-6">
+      <Card className="max-w-md text-center">
+        <span className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-fractal-ocre/10 text-fractal-ocre">
+          <Shield size={22} aria-hidden />
+        </span>
+        <h1 className="font-display text-xl font-extrabold">Accès réservé aux administrateurs</h1>
+        <p className="mt-2 text-sm text-muted">Ton compte n'a pas les droits pour afficher cette page.</p>
+        <Link href="/dashboard" className={buttonClass({ size: "lg", className: "mt-5" })}>
+          Retour à mon dashboard
+        </Link>
+      </Card>
+    </div>
+  );
+}
+
+function Skeleton() {
+  return (
+    <div className="min-h-screen bg-bg" role="status" aria-label="Chargement de l'administration">
+      <div className="fixed inset-y-0 left-0 hidden w-64 border-r border-line bg-surface p-5 lg:block">
+        <div className="h-7 w-32 animate-pulse rounded bg-line/70" />
+        <div className="mt-8 space-y-2">
+          <div className="h-10 animate-pulse rounded-xl bg-line/50" />
+          <div className="h-10 animate-pulse rounded-xl bg-line/50" />
+        </div>
+      </div>
+      <div className="lg:pl-64">
+        <div className="h-16 border-b border-line" />
+        <div className="mx-auto max-w-6xl space-y-4 px-4 pt-8 sm:px-6">
+          <div className="h-9 w-56 animate-pulse rounded bg-line/70" />
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="h-28 animate-pulse rounded-2xl bg-line/60" />
+            ))}
+          </div>
+          <div className="h-80 animate-pulse rounded-2xl bg-line/60" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+===== FILE: src/components/admin/WorldMap.tsx =====
 
 "use client";
 
@@ -3152,8 +3712,196 @@ export function WorldMap({ markers }: { markers: MapMarker[] }) {
     </div>
   );
 }
+===== FILE: src/components/admin/bits.tsx =====
 
-===== FILE:  =====
+import { Crown } from "lucide-react";
+import { clsx } from "clsx";
+import { PLAN_COLORS, PLAN_LABELS } from "@/lib/admin-types";
+
+export function PlanDot({ plan }: { plan: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 text-xs font-medium">
+      <span className="h-2 w-2 rounded-full" style={{ background: PLAN_COLORS[plan] ?? PLAN_COLORS.free }} />
+      {PLAN_LABELS[plan] ?? plan}
+    </span>
+  );
+}
+
+export function RoleBadge({ role }: { role: string }) {
+  const admin = role === "admin";
+  return (
+    <span
+      className={clsx(
+        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold",
+        admin ? "bg-fractal-ocre/10 text-fractal-terra" : "bg-soft text-muted"
+      )}
+    >
+      {admin && <Crown size={11} aria-hidden />}
+      {admin ? "Admin" : "Utilisateur"}
+    </span>
+  );
+}
+
+===== FILE: src/components/admin/charts.tsx =====
+
+"use client";
+
+import { Component, type ReactNode } from "react";
+import { PLAN_COLORS, PLAN_LABELS, PLAN_ORDER } from "@/lib/admin-types";
+
+export class MapBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  render() {
+    if (this.state.failed) {
+      return (
+        <div className="flex h-64 items-center justify-center rounded-xl bg-soft text-sm text-muted">
+          Carte indisponible (npm i d3-geo topojson-client).
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+export function Sparkline({ data }: { data: number[] }) {
+  const max = Math.max(1, ...data);
+  const pts = data
+    .map((v, i) => `${(i / Math.max(1, data.length - 1)) * 100},${26 - (v / max) * 20 - 3}`)
+    .join(" ");
+  return (
+    <svg viewBox="0 0 100 30" className="h-8 w-full" preserveAspectRatio="none" aria-hidden>
+      <polyline points={pts} fill="none" stroke="#FF6A1A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function PlanDonut({ counts }: { counts: Record<string, number> }) {
+  const total = Math.max(1, PLAN_ORDER.reduce((s, p) => s + (counts[p] ?? 0), 0));
+  const R = 40;
+  const C = 2 * Math.PI * R;
+  let acc = 0;
+  const segs = PLAN_ORDER.map((p) => {
+    const frac = (counts[p] ?? 0) / total;
+    const s = { p, frac, offset: acc };
+    acc += frac;
+    return s;
+  });
+  return (
+    <div className="flex items-center gap-5">
+      <div className="relative h-32 w-32 shrink-0">
+        <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90" role="img" aria-label="Répartition des comptes par plan">
+          <circle cx="50" cy="50" r={R} fill="none" stroke="var(--color-soft)" strokeWidth="13" />
+          {segs.map(
+            (s) =>
+              s.frac > 0 && (
+                <circle
+                  key={s.p}
+                  cx="50"
+                  cy="50"
+                  r={R}
+                  fill="none"
+                  stroke={PLAN_COLORS[s.p]}
+                  strokeWidth="13"
+                  strokeDasharray={`${C * s.frac} ${C}`}
+                  strokeDashoffset={-C * s.offset}
+                />
+              )
+          )}
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className="font-display text-xl font-extrabold">{total}</span>
+          <span className="text-[10px] text-muted">comptes</span>
+        </div>
+      </div>
+      <ul className="flex-1 space-y-2 text-sm">
+        {segs.map((s) => (
+          <li key={s.p} className="flex items-center gap-2">
+            <span className="h-2.5 w-2.5 rounded-full" style={{ background: PLAN_COLORS[s.p] }} />
+            <span className="text-muted">{PLAN_LABELS[s.p]}</span>
+            <span className="ml-auto font-semibold">{counts[s.p] ?? 0}</span>
+            <span className="w-10 text-right text-xs text-muted">{Math.round(((counts[s.p] ?? 0) / total) * 100)}%</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+===== FILE: src/components/admin/nav.ts =====
+
+import { ArrowLeft, LayoutDashboard, Users } from "lucide-react";
+import type { NavItem } from "@/components/dashboard/nav";
+
+export const ADMIN_NAV: NavItem[] = [
+  { href: "/admin", label: "Vue d'ensemble", short: "Vue d'ensemble", icon: LayoutDashboard, exact: true },
+  { href: "/admin/users", label: "Utilisateurs", short: "Utilisateurs", icon: Users },
+];
+
+export const BACK_ITEM: NavItem = { href: "/dashboard", label: "Mon dashboard", short: "Dashboard", icon: ArrowLeft };
+
+===== FILE: src/components/admin/stats.ts =====
+
+import { getCoords } from "@/lib/countryCoords";
+import { PLAN_ORDER, type AdminRow } from "@/lib/admin-types";
+
+export type MapMarker = { lat: number; lon: number; plan: string; count: number; country: string };
+
+/** Agrégats de la vue d'ensemble (calculés côté navigateur, comme avant). */
+export function computeStats(rows: AdminRow[]) {
+  const totals = rows.reduce(
+    (acc, r) => ({
+      users: acc.users + 1,
+      links: acc.links + r.links_count,
+      clicks: acc.clicks + r.clicks_total,
+      views: acc.views + r.views,
+    }),
+    { users: 0, links: 0, clicks: 0, views: 0 }
+  );
+
+  const planCounts: Record<string, number> = { free: 0, pro: 0, business: 0 };
+  rows.forEach((r) => {
+    planCounts[r.plan] = (planCounts[r.plan] ?? 0) + 1;
+  });
+
+  const now = Date.now();
+  const buckets: number[] = Array(8).fill(0);
+  rows.forEach((r) => {
+    const w = Math.floor((now - new Date(r.created_at).getTime()) / 604800000);
+    if (w >= 0 && w < 8) buckets[7 - w]++;
+  });
+
+  const countryAgg = new Map<string, { country: string; total: number; plans: Record<string, number>; lat: number; lon: number }>();
+  let unlocated = 0;
+  rows.forEach((r) => {
+    const coords = getCoords(r.country);
+    if (!coords) {
+      unlocated++;
+      return;
+    }
+    const key = r.country!.trim().toLowerCase();
+    const e = countryAgg.get(key) ?? { country: r.country!.trim(), total: 0, plans: {}, lat: coords[0], lon: coords[1] };
+    e.total++;
+    e.plans[r.plan] = (e.plans[r.plan] ?? 0) + 1;
+    countryAgg.set(key, e);
+  });
+
+  const markers: MapMarker[] = [];
+  countryAgg.forEach((c) => {
+    PLAN_ORDER.forEach((p, idx) => {
+      if ((c.plans[p] ?? 0) > 0) {
+        markers.push({ lat: c.lat + (idx - 1) * 1.6, lon: c.lon + (idx - 1) * 1.6, plan: p, count: c.plans[p], country: c.country });
+      }
+    });
+  });
+
+  const topCountries = [...countryAgg.values()].sort((a, b) => b.total - a.total).slice(0, 5);
+  return { totals, planCounts, buckets, markers, unlocated, topCountries };
+}
+
+===== FILE: src/components/dashboard/AddBlockModal.tsx =====
 
 "use client";
 
@@ -3254,7 +4002,7 @@ export function AddBlockModal({ open, onClose, onAdd, initial }: Props) {
   );
 }
 
-===== FILE:  =====
+===== FILE: src/components/dashboard/AnalyticsChart.tsx =====
 
 "use client";
 
@@ -3348,8 +4096,7 @@ export function AnalyticsChart({ profile, linkId }: Props) {
     </div>
   );
 }
-
-===== FILE:  =====
+===== FILE: src/components/dashboard/BlocksEditor.tsx =====
 
 "use client";
 
@@ -3641,8 +4388,7 @@ export function SectionsEditor({ profileId, initialBlocks, initialSocials }: Pro
     </div>
   );
 }
-
-===== FILE:  =====
+===== FILE: src/components/dashboard/CropModal.tsx =====
 
 "use client";
 import { useState, useCallback } from "react";
@@ -3730,8 +4476,7 @@ export function CropModal({ imageSrc, aspect, onConfirm, onClose }: Props) {
     </div>
   );
 }
-
-===== FILE:  =====
+===== FILE: src/components/dashboard/DashboardProvider.tsx =====
 
 "use client";
 
@@ -4078,7 +4823,7 @@ function Inner({ children }: { children: ReactNode }) {
   return <DashboardCtx.Provider value={value}>{children}</DashboardCtx.Provider>;
 }
 
-===== FILE:  =====
+===== FILE: src/components/dashboard/DashboardShell.tsx =====
 
 "use client";
 
@@ -4362,7 +5107,7 @@ function ShellSkeleton() {
   );
 }
 
-===== FILE:  =====
+===== FILE: src/components/dashboard/LinkAnalyticsModal.tsx =====
 
 "use client";
 
@@ -4520,8 +5265,7 @@ export function LinkAnalyticsModal({ open, onClose, link, profile }: Props) {
     </motion.div>
   );
 }
-
-===== FILE:  =====
+===== FILE: src/components/dashboard/LinkItem.tsx =====
 
 "use client";
 
@@ -4695,7 +5439,7 @@ export function LinkItem({ link, onUpdate, onDelete, onDragEnd, onShowAnalytics 
   );
 }
 
-===== FILE:  =====
+===== FILE: src/components/dashboard/LinkTemplates.tsx =====
 
 "use client";
 
@@ -4778,7 +5522,7 @@ export function LinkTemplates({ onPick, onAdd }: Props) {
   );
 }
 
-===== FILE:  =====
+===== FILE: src/components/dashboard/LivePreview.tsx =====
 
 "use client";
 
@@ -4818,7 +5562,7 @@ export function LivePreview({ framed = true }: { framed?: boolean }) {
   );
 }
 
-===== FILE:  =====
+===== FILE: src/components/dashboard/OfflineBanner.tsx =====
 
 "use client";
 
@@ -4847,8 +5591,7 @@ export function OfflineBanner() {
     </div>
   );
 }
-
-===== FILE:  =====
+===== FILE: src/components/dashboard/PhonePreview.tsx =====
 
 "use client";
 
@@ -4921,8 +5664,7 @@ export function PhonePreview({ profile, links }: { profile: Profile; links: Link
     </div>
   );
 }
-
-===== FILE:  =====
+===== FILE: src/components/dashboard/ProfileAvatar.tsx =====
 
 import type { DbProfile } from "@/lib/dashboard-types";
 
@@ -4959,7 +5701,111 @@ export function ProfileAvatar({
   );
 }
 
-===== FILE:  =====
+===== FILE: src/components/dashboard/ProfileCard.tsx =====
+
+"use client";
+
+import { Copy, Share2, Globe } from "lucide-react";
+import type { Profile } from "@/lib/types";
+
+export type { Profile };
+
+export function Banner({ url, className = "" }: { url: string | null; className?: string }) {
+  if (url) {
+    return (
+      <div
+        className={`w-full bg-cover bg-center ${className}`}
+        style={{ backgroundImage: `url(${url})` }}
+        role="img"
+        aria-label="Bannière du profil"
+      />
+    );
+  }
+  return <div className={`w-full bg-fractal-ocre/40 ${className}`} />;
+}
+
+export function Avatar({ profile, size = 88 }: { profile: Profile; size?: number }) {
+  const name = profile.display_name || profile.slug;
+  const initials = name.slice(0, 2).toUpperCase();
+
+  if (profile.avatar_url) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={profile.avatar_url}
+        alt={name}
+        width={size}
+        height={size}
+        className="rounded-full object-cover bg-surface"
+        style={{ width: size, height: size }}
+      />
+    );
+  }
+  return (
+    <div
+      className="rounded-full bg-fractal-ocre text-white flex items-center justify-center font-bold select-none"
+      style={{ width: size, height: size, fontSize: Math.round(size / 2.6) }}
+      aria-label={name}
+    >
+      {initials}
+    </div>
+  );
+}
+
+type ProfileCardProps = {
+  profile: Profile;
+  publicUrl: string;
+  onCopy: () => void;
+  onShare: () => void;
+};
+
+export function ProfileCard({ profile, publicUrl, onCopy, onShare }: ProfileCardProps) {
+  const shortUrl = publicUrl.replace(/^https?:\/\//, "");
+
+  return (
+    <div className="relative z-10 px-4 sm:px-6">
+      <div className="-mt-6 bg-surface rounded-2xl border border-line shadow-soft p-5 flex flex-col lg:flex-row lg:items-center gap-6">
+        <div className="flex items-start gap-4 flex-1 min-w-0">
+          <div className="-mt-12 shrink-0 rounded-full ring-4 ring-surface shadow-soft">
+            <Avatar profile={profile} size={88} />
+          </div>
+          <div className="min-w-0 pt-8">
+            {profile.country && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-soft text-muted text-[11px] px-2 py-0.5 mb-1">
+                <Globe size={11} /> {profile.country}
+              </span>
+            )}
+            <h2 className="text-lg font-display font-extrabold truncate">{profile.display_name}</h2>
+            {profile.bio && <p className="text-xs text-muted truncate">{profile.bio}</p>}
+          </div>
+        </div>
+
+        <div className="lg:w-[26rem] shrink-0">
+          <div className="mb-1.5 text-xs font-semibold">Lien Ndeletik</div>
+          <div className="flex items-stretch gap-2">
+            <div className="flex-1 min-w-0 flex items-center gap-2 rounded-lg border border-line bg-bg px-3 py-2">
+              <span className="text-xs text-muted truncate">{shortUrl}</span>
+              <button
+                onClick={onCopy}
+                aria-label="Copier le lien"
+                className="ml-auto p-1 rounded hover:bg-soft text-muted shrink-0"
+              >
+                <Copy size={13} />
+              </button>
+            </div>
+            <button
+              onClick={onShare}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-fractal-ocre hover:bg-fractal-terra text-white text-xs font-semibold px-3.5 py-2.5 shrink-0 transition-colors"
+            >
+              <Share2 size={13} /> Partager
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+===== FILE: src/components/dashboard/ProfileForm.tsx =====
 
 "use client";
 
@@ -5059,7 +5905,7 @@ export function ProfileForm() {
   );
 }
 
-===== FILE:  =====
+===== FILE: src/components/dashboard/ShortLinkManager.tsx =====
 
 "use client";
 
@@ -5389,8 +6235,7 @@ function QrModal({ slug, onClose }: { slug: string; onClose: () => void }) {
     </div>
   );
 }
-
-===== FILE:  =====
+===== FILE: src/components/dashboard/Toast.tsx =====
 
 "use client";
 
@@ -5486,8 +6331,7 @@ function useToastState() {
 
   return { toast, node };
 }
-
-===== FILE:  =====
+===== FILE: src/components/dashboard/UploadButton.tsx =====
 
 "use client";
 import { useRef, useState } from "react";
@@ -5578,8 +6422,7 @@ export function UploadButton({ kind, onDone }: Props) {
     </>
   );
 }
-
-===== FILE:  =====
+===== FILE: src/components/dashboard/blockMeta.ts =====
 
 import type { IconType } from "react-icons";
 import {
@@ -5695,8 +6538,7 @@ export function getBlockMeta(url: string): BlockMeta {
   // ===== Fallback : site web =====
   return { Icon: FaGlobe, bg: "bg-[#FF6A1A]" };
 }
-
-===== FILE:  =====
+===== FILE: src/components/dashboard/nav.ts =====
 
 import { BarChart3, LayoutList, Link2, SwatchBook, User, type LucideIcon } from "lucide-react";
 
@@ -5713,7 +6555,7 @@ export const NAV: NavItem[] = [
 export const isActive = (item: NavItem, pathname: string) =>
   item.exact ? pathname === item.href : pathname === item.href || pathname.startsWith(`${item.href}/`);
 
-===== FILE:  =====
+===== FILE: src/components/demo/DemoLinks.tsx =====
 
 "use client";
 
@@ -5999,7 +6841,164 @@ function PaySim({ onClose }: { onClose: () => void }) {
   );
 }
 
-===== FILE:  =====
+===== FILE: src/components/editor/LinkImageField.tsx =====
+
+"use client";
+
+import { useRef, useState } from "react";
+import { ImagePlus, Loader2, Sparkles, Trash2 } from "lucide-react";
+import { supabase } from "@/lib/supabaseClient";
+import { hasTransparency } from "@/lib/image-transparency";
+import { useToast } from "@/components/dashboard/Toast";
+import type { ImageMode } from "@/lib/themes/types";
+
+const MODES: { id: ImageMode; label: string; hint: string }[] = [
+  { id: "cover", label: "Couvrir", hint: "La photo remplit la carte." },
+  { id: "popout", label: "Déborder", hint: "PNG détouré qui dépasse de la carte." },
+  { id: "contain", label: "Entière", hint: "Image entière dans la carte (mockup)." },
+];
+
+const MAX_SIZE = 2 * 1024 * 1024;
+const ACCEPTED = ["image/png", "image/webp", "image/jpeg"];
+
+const ADVICE =
+  "Pour un beau détourage, supprime le fond avant d'uploader : Canva (« Supprimer l'arrière-plan ») ou remove.bg.";
+
+type Props = {
+  /** "link" = image d'un lien ; "hero" = portrait d'en-tête du profil. */
+  kind: "link" | "hero";
+  value: string | null;
+  mode?: ImageMode;
+  onImage: (url: string | null) => void;
+  onMode?: (mode: ImageMode) => void;
+};
+
+export function LinkImageField({ kind, value, mode = "cover", onImage, onMode }: Props) {
+  const { toast } = useToast();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [warn, setWarn] = useState<string | null>(null);
+
+  const pick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!ACCEPTED.includes(file.type)) return toast("Format accepté : PNG, WebP ou JPEG", false);
+    if (file.size > MAX_SIZE) return toast("2 Mo maximum", false);
+
+    setBusy(true);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      setBusy(false);
+      return;
+    }
+    const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
+    const path = `${session.user.id}/${kind}-${Date.now()}.${ext}`;
+    const { error } = await supabase.storage.from("media").upload(path, file, {
+      contentType: file.type,
+      cacheControl: "3600",
+      upsert: false,
+    });
+    if (error) {
+      setBusy(false);
+      return toast(`Upload échoué : ${error.message}`, false);
+    }
+    const { data } = supabase.storage.from("media").getPublicUrl(path);
+    onImage(data.publicUrl);
+
+    // Avertissement non bloquant si le fond n'est pas transparent alors qu'il devrait l'être.
+    if (kind === "hero" || mode !== "cover") {
+      const transparent = await hasTransparency(data.publicUrl);
+      setWarn(
+        transparent === false
+          ? "Cette image a un fond plein. Pour « Déborder » ou le portrait d'en-tête, utilise un PNG/WebP à fond transparent."
+          : null
+      );
+    } else {
+      setWarn(null);
+    }
+    setBusy(false);
+    toast("Image en ligne");
+  };
+
+  return (
+    <div className="grid gap-3">
+      <div className="flex items-center gap-3">
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-line bg-soft">
+          {value ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={value} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <ImagePlus size={18} className="text-muted" />
+          )}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <input ref={inputRef} type="file" accept={ACCEPTED.join(",")} className="hidden" onChange={pick} />
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            disabled={busy}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-2 text-xs font-medium text-ink transition-colors hover:border-fractal-ocre hover:text-fractal-terra disabled:opacity-50"
+          >
+            {busy ? <Loader2 size={14} className="animate-spin" /> : <ImagePlus size={14} />}
+            {busy ? "Envoi…" : value ? "Remplacer" : "Uploader"}
+          </button>
+          {value && (
+            <button
+              type="button"
+              onClick={() => {
+                onImage(null);
+                setWarn(null);
+              }}
+              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium text-muted transition-colors hover:bg-red-50 hover:text-red-600"
+            >
+              <Trash2 size={14} /> Retirer
+            </button>
+          )}
+        </div>
+      </div>
+
+      {onMode && value && (
+        <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Mode d'affichage de l'image">
+          {MODES.map((m) => (
+            <button
+              key={m.id}
+              type="button"
+              role="radio"
+              aria-checked={mode === m.id}
+              title={m.hint}
+              onClick={() => onMode(m.id)}
+              className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                mode === m.id
+                  ? "border-fractal-ocre bg-fractal-ocre/10 text-fractal-terra"
+                  : "border-line text-muted hover:border-fractal-ocre/50 hover:text-ink"
+              }`}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <p className="text-[11px] leading-relaxed text-muted">{ADVICE}</p>
+      {warn && (
+        <p className="rounded-xl border border-fractal-or/40 bg-fractal-or/10 px-3 py-2 text-[11px] text-fractal-terra">
+          {warn}
+        </p>
+      )}
+
+      <button
+        type="button"
+        disabled
+        title="Bientôt disponible"
+        className="inline-flex w-fit items-center gap-1.5 rounded-lg border border-dashed border-line px-3 py-2 text-xs font-medium text-muted/70"
+      >
+        <Sparkles size={13} /> Supprimer le fond automatiquement — bientôt disponible
+      </button>
+    </div>
+  );
+}
+===== FILE: src/components/editor/ThemeSelector.tsx =====
 
 "use client";
 
@@ -6387,8 +7386,7 @@ export function ThemeSelector({ profile, plan, currentThemeId, currentCustom, pa
     </div>
   );
 }
-
-===== FILE:  =====
+===== FILE: src/components/editor/editor.css =====
 
 /* Miniatures et cadre téléphone du sélecteur de thèmes */
 .nd-thumb { width: 132px; height: 232px; overflow: hidden; border-radius: 14px; position: relative; background: #ddd; }
@@ -6402,8 +7400,7 @@ export function ThemeSelector({ profile, plan, currentThemeId, currentCustom, pa
 }
 .nd-screen { height: 100%; overflow-y: auto; overscroll-behavior: contain; }
 .nd-screen .nd-profile { min-height: 100%; }
-
-===== FILE:  =====
+===== FILE: src/components/landing/Benefits.tsx =====
 
 import { BadgeCheck, Smartphone, Zap } from "lucide-react";
 import Link from "next/link";
@@ -6462,7 +7459,7 @@ export function Benefits() {
               Vends tes formations, tes produits et tes services depuis ta page, sans site web.
             </p>
           </div>
-          <Link href="/auth" className="mt-8 inline-flex w-fit rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-bg">
+          <Link href="/auth?mode=signup" className="mt-8 inline-flex w-fit rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-bg">
             Créer ma page
           </Link>
         </div>
@@ -6506,8 +7503,7 @@ export function Benefits() {
     </section>
   );
 }
-
-===== FILE:  =====
+===== FILE: src/components/landing/Calculator.tsx =====
 
 "use client";
 import { useState } from "react";
@@ -6645,8 +7641,7 @@ export function Calculator() {
     </section>
   );
 }
-
-===== FILE:  =====
+===== FILE: src/components/landing/Compare.tsx =====
 
 import { Check, Minus } from "lucide-react";
 import { BtnDark, GradText, Mark, SectionTitle, grad } from "./ui";
@@ -6673,7 +7668,7 @@ export function Compare() {
           <p className="mt-4 max-w-md text-sm text-muted">
             Les autres outils ignorent ton marché. Ndeletik est construit autour du Mobile Money, du mobile et du français.
           </p>
-          <BtnDark href="/auth" className="mt-6">
+          <BtnDark href="/auth?mode=signup" className="mt-6">
             Commencer
           </BtnDark>
         </div>
@@ -6725,8 +7720,7 @@ export function Compare() {
     </section>
   );
 }
-
-===== FILE:  =====
+===== FILE: src/components/landing/Faq.tsx =====
 
 "use client";
 import { useState } from "react";
@@ -6779,8 +7773,7 @@ export function Faq() {
     </section>
   );
 }
-
-===== FILE:  =====
+===== FILE: src/components/landing/Features.tsx =====
 
 import { GripVertical } from "lucide-react";
 import { FaWhatsapp, FaYoutube } from "react-icons/fa6";
@@ -6894,8 +7887,7 @@ export function Features() {
     </section>
   );
 }
-
-===== FILE:  =====
+===== FILE: src/components/landing/Footer.tsx =====
 
 import Link from "next/link";
 import { BtnDark, GradText, Mark, Wordmark } from "./ui";
@@ -6907,7 +7899,7 @@ export function FinalCta() {
         Libère la puissance de <Mark /> <GradText>Ndeletik</GradText>
       </h2>
       <p className="mx-auto mt-4 max-w-md text-sm text-muted">Crée ta page gratuite maintenant et partage-la partout.</p>
-      <BtnDark href="/auth" className="mt-7 px-7 py-3.5 text-base">
+      <BtnDark href="/auth?mode=signup" className="mt-7 px-7 py-3.5 text-base">
         Créer ma page gratuite
       </BtnDark>
     </section>
@@ -6956,11 +7948,14 @@ export function Footer() {
     </footer>
   );
 }
-
-===== FILE:  =====
+===== FILE: src/components/landing/Hero.tsx =====
 
 "use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import { motion } from "framer-motion";
+import { Check, Loader2, X } from "lucide-react";
 import type { IconType } from "react-icons";
 import {
   FaFacebookF,
@@ -6980,7 +7975,6 @@ const wordVariants = {
 };
 
 type Platform = { name: string; Icon: IconType; bg: string };
-
 // Couleurs officielles des apps.
 const platforms: Platform[] = [
   { name: "Facebook", Icon: FaFacebookF, bg: "#1877F2" },
@@ -6998,12 +7992,10 @@ const platforms: Platform[] = [
 ];
 
 const R = 36; // rayon de l'anneau, en % de la scène
-
 const nodes = platforms.map((p, i) => {
   const a = ((i * 360) / platforms.length - 90 + 22.5) * (Math.PI / 180);
   const x = 50 + R * Math.cos(a);
   const y = 50 + R * Math.sin(a);
-  // Courbe légère : point de contrôle décalé perpendiculairement.
   const mx = (50 + x) / 2;
   const my = (50 + y) / 2;
   const nx = -Math.sin(a);
@@ -7015,7 +8007,6 @@ const nodes = platforms.map((p, i) => {
 
 function Scene() {
   return (
-    // Le carré s'adapte à la hauteur ET à la largeur disponibles : rien n'est coupé.
     <div
       className="flex h-full min-h-0 w-full items-center justify-center"
       style={{ containerType: "size" }}
@@ -7031,7 +8022,6 @@ function Scene() {
           aria-hidden
           className="absolute inset-[8%] rounded-full bg-gradient-to-br from-fractal-or/25 via-fractal-ocre/15 to-fractal-terra/20 blur-2xl"
         />
-
         <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full" aria-hidden>
           <defs>
             <linearGradient id="hero-line" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="100" y2="100">
@@ -7040,38 +8030,16 @@ function Scene() {
               <stop offset="1" stopColor="#C1440E" />
             </linearGradient>
           </defs>
-          <circle
-            cx="50"
-            cy="50"
-            r={R}
-            fill="none"
-            stroke="rgb(var(--line))"
-            strokeWidth="0.3"
-            strokeDasharray="1 1.6"
-          />
+          <circle cx="50" cy="50" r={R} fill="none" stroke="rgb(var(--line))" strokeWidth="0.3" strokeDasharray="1 1.6" />
           {nodes.map((n, i) => (
             <g key={n.name}>
-              <path
-                d={n.d}
-                fill="none"
-                stroke="url(#hero-line)"
-                strokeWidth="0.7"
-                strokeLinecap="round"
-                opacity="0.55"
-              />
+              <path d={n.d} fill="none" stroke="url(#hero-line)" strokeWidth="0.7" strokeLinecap="round" opacity="0.55" />
               <circle r="1.3" fill="#FF6A1A">
-                <animateMotion
-                  dur="3.2s"
-                  begin={`${(i * 0.4).toFixed(1)}s`}
-                  repeatCount="indefinite"
-                  path={n.d}
-                />
+                <animateMotion dur="3.2s" begin={`${(i * 0.4).toFixed(1)}s`} repeatCount="indefinite" path={n.d} />
               </circle>
             </g>
           ))}
         </svg>
-
-        {/* Logo central Ndeletik */}
         <div
           className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
           style={{ width: "26%", height: "26%" }}
@@ -7083,8 +8051,6 @@ function Scene() {
             <Logo className="h-[62%] w-[62%] brightness-0 invert" />
           </div>
         </div>
-
-        {/* Icônes d'apps officielles */}
         {nodes.map((n, i) => (
           <motion.div
             key={n.name}
@@ -7114,6 +8080,75 @@ function Scene() {
   );
 }
 
+/** Champ « réserve ton nom » : vérifie la disponibilité en direct et pré-remplit l'inscription. */
+function ReserveName() {
+  const [slug, setSlug] = useState("");
+  const [state, setState] = useState<"idle" | "checking" | "ok" | "taken" | "invalid">("idle");
+  const clean = slug.toLowerCase().replace(/[^a-z0-9_.-]/g, "");
+
+  useEffect(() => {
+    if (clean.length < 3) {
+      setState("idle");
+      return;
+    }
+    setState("checking");
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/slug-check?slug=${encodeURIComponent(clean)}`);
+        const data = await res.json();
+        setState(data.available ? "ok" : data.reason === "invalid" ? "invalid" : "taken");
+      } catch {
+        setState("invalid");
+      }
+    }, 350);
+    return () => clearTimeout(t);
+  }, [clean]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.8 }}
+      className="mx-auto mt-5 w-full max-w-md md:mx-0"
+    >
+      <div className="flex items-center gap-2 rounded-full border border-line bg-surface p-1.5 pl-4 shadow-soft">
+        <span className="shrink-0 text-sm text-muted">@</span>
+        <input
+          value={slug}
+          onChange={(e) => setSlug(e.target.value.toLowerCase())}
+          placeholder="ton-nom"
+          aria-label="Réserve ton nom d'utilisateur"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          className="min-w-0 flex-1 bg-transparent text-sm text-ink placeholder:text-muted/60 focus:outline-none"
+        />
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center" aria-live="polite">
+          {state === "checking" && <Loader2 size={15} className="animate-spin text-muted" />}
+          {state === "ok" && <Check size={15} className="text-emerald-600" />}
+          {state === "taken" && <X size={15} className="text-fractal-terra" />}
+        </span>
+        <Link
+          href={`/auth?slug=${encodeURIComponent(clean)}`}
+          aria-disabled={state !== "ok"}
+          className={`shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition ${
+            state === "ok"
+              ? "bg-fractal-ocre text-white hover:bg-fractal-terra"
+              : "pointer-events-none bg-soft text-muted"
+          }`}
+        >
+          Réserver
+        </Link>
+      </div>
+      <p className="mt-1.5 min-h-4 px-2 text-[11px] text-muted" aria-live="polite">
+        {state === "ok" && `ndeletik.com/@${clean} est libre !`}
+        {state === "taken" && "Ce nom est déjà pris, essaie une variante."}
+        {state === "invalid" && "3 à 30 caractères : lettres, chiffres, tirets, points."}
+      </p>
+    </motion.div>
+  );
+}
+
 export function Hero() {
   return (
     <section
@@ -7128,26 +8163,21 @@ export function Hero() {
               <span className={`h-2 w-2 rounded-full ${grad}`} /> Conçu pour les créateurs africains
             </Badge>
           </motion.div>
-
           <motion.h1
             className="font-display text-[2.25rem] font-extrabold leading-[1.04] sm:text-5xl lg:text-6xl xl:text-7xl"
             initial="hidden"
             animate="visible"
             transition={{ staggerChildren: 0.1 }}
           >
-            <span className="block">
+            <span className="sr-only">Tes liens, ton héritage.</span>
+            <span className="block" aria-hidden>
               {["Tes", "liens,"].map((w) => (
-                <motion.span
-                  key={w}
-                  variants={wordVariants}
-                  transition={{ duration: 0.5 }}
-                  className="mr-3 inline-block"
-                >
+                <motion.span key={w} variants={wordVariants} transition={{ duration: 0.5 }} className="mr-3 inline-block">
                   {w}
                 </motion.span>
               ))}
             </span>
-            <span className="block">
+            <span className="block" aria-hidden>
               <motion.span variants={wordVariants} transition={{ duration: 0.5 }} className="mr-1 inline-block">
                 ton
               </motion.span>
@@ -7159,7 +8189,6 @@ export function Hero() {
               </motion.span>
             </span>
           </motion.h1>
-
           <motion.p
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
@@ -7168,7 +8197,6 @@ export function Hero() {
           >
             Une seule page pour tous tes réseaux, ton design et tes paiements Mobile Money.
           </motion.p>
-
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
@@ -7179,8 +8207,8 @@ export function Hero() {
               Créer ma page gratuite
             </BtnDark>
           </motion.div>
+          <ReserveName />
         </div>
-
         {/* Colonne scène : anneaux de plateformes */}
         <div className="mt-2 min-h-0 flex-1 md:mt-0 md:h-full md:max-h-[calc(100svh-8rem)]">
           <Scene />
@@ -7189,8 +8217,7 @@ export function Hero() {
     </section>
   );
 }
-
-===== FILE:  =====
+===== FILE: src/components/landing/Navbar.tsx =====
 
 "use client";
 import { useState } from "react";
@@ -7228,13 +8255,19 @@ export function Navbar() {
         </ul>
 
         <div className="flex items-center gap-2">
-          <BtnDark href="/auth" className="hidden sm:inline-flex">
+          <Link
+            href="/auth?mode=login"
+            className="hidden rounded-full px-4 py-2.5 text-sm font-medium text-ink transition hover:bg-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fractal-ocre sm:inline-flex"
+          >
+            Connexion
+          </Link>
+          <BtnDark href="/auth?mode=signup" className="hidden sm:inline-flex">
             Créer ma page
           </BtnDark>
           {/* Burger mobile */}
           <button
             onClick={() => setOpen(!open)}
-            aria-label="Menu"
+            aria-label={open ? "Fermer le menu" : "Ouvrir le menu"}
             aria-expanded={open}
             className="p-2 rounded-full hover:bg-soft text-ink md:hidden"
           >
@@ -7259,16 +8292,24 @@ export function Navbar() {
               </li>
             ))}
           </ul>
-          <BtnDark href="/auth" className="mt-3 w-full sm:hidden">
-            Créer ma page
-          </BtnDark>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <Link
+              href="/auth?mode=login"
+              onClick={() => setOpen(false)}
+              className="inline-flex items-center justify-center rounded-full border border-line px-4 py-3 text-sm font-medium text-ink transition hover:bg-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fractal-ocre"
+            >
+              Connexion
+            </Link>
+            <BtnDark href="/auth?mode=signup" className="w-full">
+              Créer ma page
+            </BtnDark>
+          </div>
         </div>
       )}
     </header>
   );
 }
-
-===== FILE:  =====
+===== FILE: src/components/landing/Pricing.tsx =====
 
 "use client";
 
@@ -7387,7 +8428,7 @@ export function Pricing() {
               </span>
               <span className="ml-1 text-sm text-muted">FCFA / mois</span>
             </div>
-            <Link href="/auth" className="rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-bg">
+            <Link href="/auth?mode=signup" className="rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-bg">
               Choisir {plan}
             </Link>
           </div>
@@ -7396,8 +8437,7 @@ export function Pricing() {
     </section>
   );
 }
-
-===== FILE:  =====
+===== FILE: src/components/landing/Steps.tsx =====
 
 import { Link2, Palette, Send, UserRound } from "lucide-react";
 import { GradText, Mark, SectionTitle, grad } from "./ui";
@@ -7436,8 +8476,7 @@ export function Steps() {
     </section>
   );
 }
-
-===== FILE:  =====
+===== FILE: src/components/landing/ui.tsx =====
 
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -7518,8 +8557,7 @@ export function SectionTitle({ label, children }: { label?: string; children: Re
 export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
   return <div className={`rounded-3xl border border-line bg-surface shadow-soft ${className}`}>{children}</div>;
 }
-
-===== FILE:  =====
+===== FILE: src/components/profile/ProfileRenderer.tsx =====
 
 import "./profile.css";
 import Link from "next/link";
@@ -7703,6 +8741,8 @@ export function ProfileRenderer({ profile, plan, themeOverride, customOverride, 
   const href = (l: LinkItem) => (preview ? "#" : trackBase ? `${trackBase}/${l.id}` : safeUrl(l.url) ?? "#");
   // Le plan gratuit affiche toujours le badge ; Pro et Business peuvent le retirer.
   const showBadge = !planAtLeast(plan, "pro") || profile.showBadge !== false;
+  // Composition en deux zones (identité + réseaux / conversion) : thèmes Pro et Business uniquement.
+  const twoParts = theme.plan !== "free";
   const avatar = safeImageUrl(profile.avatarUrl);
   const cover = safeImageUrl(profile.coverUrl);
   const initial = profile.displayName.trim().charAt(0).toUpperCase() || "N";
@@ -7715,11 +8755,13 @@ export function ProfileRenderer({ profile, plan, themeOverride, customOverride, 
       data-btn={theme.buttonStyle}
       data-header={theme.header}
       data-avatar={theme.avatarShape}
+      data-parts={twoParts ? "two" : undefined}
       data-upper-links={theme.uppercaseLinks ? "true" : undefined}
       data-upper-name={theme.uppercaseName ? "true" : undefined}
     >
       {fontsHref && <link rel="stylesheet" href={fontsHref} />}
       <main className="nd-col">
+        {/* ----- ZONE 1 : identité + réseaux / moyens de contact ----- */}
         <header className="nd-header">
           {theme.header === "cover" && (
             <div
@@ -7741,7 +8783,7 @@ export function ProfileRenderer({ profile, plan, themeOverride, customOverride, 
           {profile.headline && <p className="nd-headline">{profile.headline}</p>}
           {profile.bio && <p className="nd-bio">{profile.bio}</p>}
           {profile.socials.length > 0 && (
-            <nav className="nd-socials" aria-label="Réseaux sociaux">
+            <nav className="nd-socials" aria-label="Réseaux sociaux et moyens de contact">
               {profile.socials.map((s) => (
                 <a key={s.type} href={preview ? "#" : safeUrl(s.url) ?? "#"} aria-label={s.type} rel="noopener noreferrer">
                   <SocialIcon type={s.type} />
@@ -7750,14 +8792,19 @@ export function ProfileRenderer({ profile, plan, themeOverride, customOverride, 
             </nav>
           )}
         </header>
-        <nav className="nd-links" aria-label="Liens">
-          {links.map((l) => (
-            <LinkView key={l.id} link={l} layout={theme.layout} href={href(l)} />
+
+        {/* ----- ZONE 2 : conversion & activités (offres, réservations, boutique, formulaires) ----- */}
+        <section className="nd-zone-main" aria-label="Offres, liens et actions">
+          <nav className="nd-links" aria-label="Liens">
+            {links.map((l) => (
+              <LinkView key={l.id} link={l} layout={theme.layout} href={href(l)} />
+            ))}
+          </nav>
+          {profile.blocks?.map((b, i) => (
+            <BlockView key={i} block={b} slug={profile.slug} preview={preview} />
           ))}
-        </nav>
-        {profile.blocks?.map((b, i) => (
-          <BlockView key={i} block={b} slug={profile.slug} preview={preview} />
-        ))}
+        </section>
+
         {showBadge && (
           <footer className="nd-foot">
             <Link href="/">Créé avec Ndeletik</Link>
@@ -7767,8 +8814,7 @@ export function ProfileRenderer({ profile, plan, themeOverride, customOverride, 
     </div>
   );
 }
-
-===== FILE:  =====
+===== FILE: src/components/profile/ViewBeacon.tsx =====
 
 "use client";
 
@@ -7788,8 +8834,7 @@ export function ViewBeacon({ slug }: { slug: string }) {
   }, [slug]);
   return null;
 }
-
-===== FILE:  =====
+===== FILE: src/components/profile/icons.tsx =====
 
 import {
   BadgeCheck, BookOpen, Briefcase, Calendar, ChevronDown, ChevronRight, Dumbbell, FileText, Gift, Globe,
@@ -7863,8 +8908,7 @@ export function SmartLinkIcon({ url, name, size = 18 }: { url?: string; name?: s
 }
 
 export { BadgeCheck, ChevronDown, ChevronRight };
-
-===== FILE:  =====
+===== FILE: src/components/profile/profile.css =====
 
 /* Moteur de rendu des profils : tout le look vient des variables --p-* (voir lib/themes/tokens.ts). */
 .nd-profile { min-height: 100svh; display: flex; justify-content: center; background: var(--p-bg); color: var(--p-text); font-family: var(--p-font-body), system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
@@ -7893,6 +8937,14 @@ export { BadgeCheck, ChevronDown, ChevronRight };
 .nd-socials { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 16px; }
 .nd-socials a { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 50%; background: var(--p-surface); border: 1px solid var(--p-border); font-size: 1rem; transition: transform 0.15s; }
 .nd-socials a:hover { transform: translateY(-2px); }
+/* ---------- Composition deux zones (thèmes Pro & Business uniquement) ---------- */
+/* Thèmes gratuits : la zone est transparente (display: contents) → rendu strictement identique à la galerie. */
+.nd-zone-main { display: contents; }
+/* Pro / Business : zone 1 = identité + réseaux ; zone 2 = conversion, séparée par un filet dégradé. */
+.nd-profile[data-parts="two"] .nd-zone-main { position: relative; display: flex; flex-direction: column; gap: 16px; width: 100%; margin-top: 14px; padding-top: 20px; }
+.nd-profile[data-parts="two"] .nd-zone-main::before { content: ""; position: absolute; top: 0; left: 8%; right: 8%; height: 1px; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--p-accent) 55%, transparent), transparent); }
+.nd-profile[data-parts="two"] .nd-header { padding-bottom: 6px; }
+.nd-profile[data-parts="two"] .nd-socials { margin-top: 18px; }
 /* ---------- Liens ---------- */
 .nd-links { width: 100%; display: flex; flex-direction: column; gap: 12px; }
 .nd-profile[data-layout="grid"] .nd-links { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
@@ -8191,8 +9243,7 @@ export { BadgeCheck, ChevronDown, ChevronRight };
 @media (prefers-reduced-motion: reduce) {
   .nd-profile[data-theme="champagne-atelier"] .nd-link { transition: none; }
 }
-
-===== FILE:  =====
+===== FILE: src/components/sections/page.tsx =====
 
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
@@ -8224,8 +9275,7 @@ export default async function SectionsPage() {
     />
   );
 }
-
-===== FILE:  =====
+===== FILE: src/components/ui/Badge.tsx =====
 
 import type { ReactNode } from "react";
 import { clsx } from "clsx";
@@ -8244,7 +9294,7 @@ export function Badge({ tone = "neutral", children }: { tone?: keyof typeof tone
   );
 }
 
-===== FILE:  =====
+===== FILE: src/components/ui/Button.tsx =====
 
 import { forwardRef, type ButtonHTMLAttributes } from "react";
 import { clsx } from "clsx";
@@ -8295,7 +9345,7 @@ export const Button = forwardRef<HTMLButtonElement, Props>(function Button(
   return <button ref={ref} type={type} className={buttonClass({ variant, size, full, className })} {...rest} />;
 });
 
-===== FILE:  =====
+===== FILE: src/components/ui/Card.tsx =====
 
 import type { HTMLAttributes } from "react";
 import { clsx } from "clsx";
@@ -8319,7 +9369,7 @@ export function CardTitle({ children, hint }: { children: React.ReactNode; hint?
   );
 }
 
-===== FILE:  =====
+===== FILE: src/components/ui/ConfirmDialog.tsx =====
 
 "use client";
 
@@ -8389,8 +9439,7 @@ export function ConfirmDialog({
     document.body
   );
 }
-
-===== FILE:  =====
+===== FILE: src/components/ui/EmptyState.tsx =====
 
 import type { ReactNode } from "react";
 
@@ -8417,7 +9466,7 @@ export function EmptyState({
   );
 }
 
-===== FILE:  =====
+===== FILE: src/components/ui/Field.tsx =====
 
 import type { ReactNode } from "react";
 import { clsx } from "clsx";
@@ -8474,7 +9523,7 @@ export function Switch({
   );
 }
 
-===== FILE:  =====
+===== FILE: src/components/ui/Modal.tsx =====
 
 "use client";
 
@@ -8579,7 +9628,7 @@ export function Modal({ open, onClose, title, description, size = "md", children
   );
 }
 
-===== FILE:  =====
+===== FILE: src/components/ui/PageHeader.tsx =====
 
 import type { ReactNode } from "react";
 
@@ -8604,7 +9653,7 @@ export function PageHeader({
   );
 }
 
-===== FILE:  =====
+===== FILE: src/components/ui/Shell.tsx =====
 
 import type { ReactNode } from "react";
 
@@ -8629,8 +9678,43 @@ export function Shell({ title, description, actions, children }: Props) {
     </div>
   );
 }
+===== FILE: src/lib/admin-types.ts =====
 
-===== FILE:  =====
+export type AdminRow = {
+  id: string;
+  user_id: string;
+  slug: string;
+  display_name: string;
+  avatar_url: string | null;
+  country: string | null;
+  views: number;
+  theme_id: string;
+  created_at: string;
+  plan: string;
+  role: string;
+  links_count: number;
+  clicks_total: number;
+};
+
+export const PLAN_COLORS: Record<string, string> = { free: "#F9A825", pro: "#FF6A1A", business: "#C1440E" };
+export const PLAN_LABELS: Record<string, string> = { free: "Gratuit", pro: "Pro", business: "Business" };
+export const PLAN_ORDER = ["free", "pro", "business"];
+
+export type SortKey = "recent" | "old" | "clicks" | "views" | "links" | "az";
+
+export const SORTS: { id: SortKey; label: string }[] = [
+  { id: "recent", label: "Inscriptions récentes" },
+  { id: "old", label: "Inscriptions anciennes" },
+  { id: "clicks", label: "Plus de clics" },
+  { id: "views", label: "Plus de vues" },
+  { id: "links", label: "Plus de liens" },
+  { id: "az", label: "Pseudo A → Z" },
+];
+
+export const fmt = (n: number) => new Intl.NumberFormat("fr-FR").format(n);
+export const fmtDate = (iso: string) => new Date(iso).toLocaleDateString("fr-FR");
+
+===== FILE: src/lib/countries.ts =====
 
 export type Country = { name: string; lat: number; lon: number };
 export type CountryGroup = { label: string; countries: Country[] };
@@ -8757,8 +9841,7 @@ export const COUNTRY_GROUPS: CountryGroup[] = [
 ];
 
 export const ALL_COUNTRIES: Country[] = COUNTRY_GROUPS.flatMap((g) => g.countries);
-
-===== FILE:  =====
+===== FILE: src/lib/countryCoords.ts =====
 
 import { ALL_COUNTRIES } from "./countries";
 
@@ -8813,8 +9896,7 @@ export function getCoords(raw: string | null): [number, number] | null {
   const fuzzy = ALL_COUNTRIES.find((c) => norm(c.name) === n);
   return fuzzy ? [fuzzy.lat, fuzzy.lon] : null;
 }
-
-===== FILE:  =====
+===== FILE: src/lib/cropImage.ts =====
 
 export const createImage = (url: string): Promise<HTMLImageElement> =>
   new Promise((resolve, reject) => {
@@ -8860,8 +9942,7 @@ export async function getCroppedImg(
     );
   });
 }
-
-===== FILE:  =====
+===== FILE: src/lib/current-profile.ts =====
 
 import { cookies } from "next/headers";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -8879,7 +9960,7 @@ export async function getCurrentProfileRow(supabase: SupabaseClient, userId: str
   return rows.find((r) => r.id === wanted) ?? rows[0];
 }
 
-===== FILE:  =====
+===== FILE: src/lib/dashboard-types.ts =====
 
 import type { Plan } from "./plans";
 
@@ -8921,7 +10002,7 @@ export const PLAN_LABEL: Record<Plan, string> = { free: "Gratuit", pro: "Pro", b
 /** Cookie qui mémorise le profil sélectionné (lu aussi côté serveur par /dashboard/themes et /sections). */
 export const PROFILE_COOKIE = "nd_profile";
 
-===== FILE:  =====
+===== FILE: src/lib/detect-icon.ts =====
 
 /** Détection ordonnée : premier match gagnant. */
 const PLATFORM_DOMAINS: [string, string][] = [
@@ -8990,8 +10071,7 @@ export function detectIcon(url: string): string {
   if (u.startsWith("http")) return "globe";
   return "link";
 }
-
-===== FILE:  =====
+===== FILE: src/lib/entitlements.ts =====
 
 import { planAtLeast, type Plan } from "./plans";
 import { FONT_OPTIONS } from "./themes/fonts";
@@ -9041,8 +10121,38 @@ export function sanitizeCustomTokens(input: unknown): CustomTokens {
   }
   return out;
 }
+===== FILE: src/lib/image-transparency.ts =====
 
-===== FILE:  =====
+/**
+ * Mesure si une image possède un fond transparent (PNG/WebP).
+ * Renvoie null en cas de doute (CORS, format illisible) : jamais bloquant.
+ */
+export async function hasTransparency(url: string): Promise<boolean | null> {
+  try {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    await new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = reject;
+      img.src = url;
+    });
+    const canvas = document.createElement("canvas");
+    const w = (canvas.width = Math.min(128, img.naturalWidth || 128));
+    const h = (canvas.height = Math.min(128, img.naturalHeight || 128));
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx) return null;
+    ctx.drawImage(img, 0, 0, w, h);
+    const { data } = ctx.getImageData(0, 0, w, h);
+    let transparent = 0;
+    for (let i = 3; i < data.length; i += 4) {
+      if (data[i] < 250) transparent++;
+    }
+    return transparent / (w * h) > 0.05;
+  } catch {
+    return null;
+  }
+}
+===== FILE: src/lib/multi-profiles.ts =====
 
 import type { Plan } from "./plans";
 
@@ -9063,8 +10173,7 @@ export function profileLimitMessage(plan: Plan): string {
   if (plan === "pro") return `Plan Pro : ${limit} profils maximum. Passe au Business pour en créer jusqu'à ${PROFILE_LIMITS.business}.`;
   return `Plan Business : ${limit} profils maximum.`;
 }
-
-===== FILE:  =====
+===== FILE: src/lib/og.tsx =====
 
 import { ImageResponse } from "next/og";
 import type { ThemeTokens } from "@/lib/themes/types";
@@ -9243,7 +10352,7 @@ export function profileOg({ name, slug, headline, avatar, tokens: t }: ProfileOg
   );
 }
 
-===== FILE:  =====
+===== FILE: src/lib/plans.ts =====
 
 export type Plan = "free" | "pro" | "business";
 
@@ -9252,8 +10361,7 @@ export const PLAN_RANK: Record<Plan, number> = { free: 0, pro: 1, business: 2 };
 export function planAtLeast(current: Plan, required: Plan): boolean {
   return PLAN_RANK[current] >= PLAN_RANK[required];
 }
-
-===== FILE:  =====
+===== FILE: src/lib/profile-mapper.ts =====
 
 import { sanitizeCustomTokens } from "./entitlements";
 import type { Plan } from "./plans";
@@ -9362,8 +10470,7 @@ export function toProfile(payload: any): { profile: Profile; plan: Plan } {
     },
   };
 }
-
-===== FILE:  =====
+===== FILE: src/lib/reserved.ts =====
 
 export const RESERVED_USERNAMES = [
   "admin", "dashboard", "auth", "api", "settings", "support", "help",
@@ -9376,8 +10483,7 @@ export const RESERVED_USERNAMES = [
 export function isReserved(username: string): boolean {
   return RESERVED_USERNAMES.includes(username.toLowerCase());
 }
-
-===== FILE:  =====
+===== FILE: src/lib/safe-url.ts =====
 
 export function safeUrl(u?: string | null): string | undefined {
   if (!u) return undefined;
@@ -9391,8 +10497,7 @@ export function safeImageUrl(u?: string | null): string | undefined {
   if (!u || !/^https:\/\/[^\s"'()]+$/.test(u)) return undefined;
   return u;
 }
-
-===== FILE:  =====
+===== FILE: src/lib/supabase/admin.ts =====
 
 import { createClient } from "@supabase/supabase-js";
 
@@ -9408,8 +10513,7 @@ export const createAdminClient = () => {
     }
   );
 };
-
-===== FILE:  =====
+===== FILE: src/lib/supabase/public.ts =====
 
 import { createClient } from "@supabase/supabase-js";
 
@@ -9419,8 +10523,7 @@ export const createPublicClient = () => {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 };
-
-===== FILE:  =====
+===== FILE: src/lib/supabase/server.ts =====
 
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
@@ -9449,8 +10552,7 @@ export const createClient = async () => {
     }
   );
 };
-
-===== FILE:  =====
+===== FILE: src/lib/supabaseClient.ts =====
 
 import { createBrowserClient } from "@supabase/ssr";
 
@@ -9462,8 +10564,7 @@ export const supabase = createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
-
-===== FILE:  =====
+===== FILE: src/lib/themes/business.ts =====
 
 import type { Theme } from "./types";
 
@@ -9477,8 +10578,7 @@ export const BUSINESS_THEMES: Theme[] = [
   { id: "avocate", name: "Avocate", plan: "business", layout: "cards", buttonStyle: "soft", header: "cover", avatarShape: "circle", dark: false, fonts: ["Playfair+Display:wght@500;600;700", "Inter:wght@400;500;600;700"], tokens: { bg: "#F6F0EA", surface: "#FFFFFF", text: "#1B2A4E", muted: "#5C6784", accent: "#1B2A4E", accent2: "#2C3F6E", onAccent: "#FFFFFF", border: "#E8E2DA", radius: "18px", shadow: "none", headerBg: "linear-gradient(180deg,#E9DDD0,#F6F0EA)", fontDisplay: "Playfair Display", fontBody: "Inter" } },
   { id: "champagne-atelier", name: "Champagne Atelier", plan: "business", layout: "cards", buttonStyle: "neu", header: "cover", avatarShape: "circle", dark: false, fonts: ["Cormorant+Garamond:wght@400;500;600;700", "Montserrat:wght@400;500;600"], tokens: { bg: "linear-gradient(180deg,#F7F0E9 0%,#F2E7DE 100%)", surface: "#FBF7F3", text: "#604B2C", muted: "#8A7558", accent: "#8C7049", accent2: "#B29A78", onAccent: "#FFFFFF", border: "#E5D9CE", radius: "28px", shadow: "0 8px 18px -10px rgba(88,65,38,.32), 0 2px 5px rgba(80,60,35,.10)", headerBg: "#F6EDE4", fontDisplay: "Cormorant Garamond", fontBody: "Montserrat" } },
 ];
-
-===== FILE:  =====
+===== FILE: src/lib/themes/demo.ts =====
 
 import type { Profile } from "./types";
 
@@ -9538,8 +10638,7 @@ export const DEMO_PROFILE: Profile = {
     { type: "newsletter", title: "Rejoins ma newsletter", subtitle: "Conseils et actualités chaque semaine." },
   ],
 };
-
-===== FILE:  =====
+===== FILE: src/lib/themes/fonts.ts =====
 
 /** Liste FERMÉE des polices surchargeables (plan Pro+). Miroir exact de SQL is_safe_token. */
 export const FONT_OPTIONS = [
@@ -9570,8 +10669,7 @@ export const FONT_QUERIES: Record<string, string> = {
   Pacifico: "Pacifico",
   "Open Sans": "Open+Sans:wght@400;600;700",
 };
-
-===== FILE:  =====
+===== FILE: src/lib/themes/free.ts =====
 
 import type { Theme } from "./types";
 
@@ -9597,8 +10695,7 @@ export const FREE_THEMES: Theme[] = [
     tokens: { bg: "#FFFFFF", surface: "#FFFFFF", text: "#1D1D1D", muted: "#6B6B6B", accent: "#3A3434", accent2: "#5A5252", onAccent: "#FFFFFF", border: "#E6E6E6", radius: "14px", shadow: "none", headerBg: "#3B3737", fontDisplay: "Inter", fontBody: "Inter" },
   },
 ];
-
-===== FILE:  =====
+===== FILE: src/lib/themes/pro.ts =====
 
 import type { Theme } from "./types";
 
@@ -9612,8 +10709,7 @@ export const PRO_THEMES: Theme[] = [
   { id: "vert-coach", name: "Coach vert", plan: "pro", layout: "cards", buttonStyle: "soft", header: "center", avatarShape: "circle", dark: false, uppercaseLinks: true, tracking: "0.02em", fonts: ["Montserrat:wght@500;600;700;800", "Poppins:wght@400;500;600"], tokens: { bg: "#F6F7F5", surface: "#FFFFFF", text: "#111111", muted: "#5F6B5C", accent: "#3FA535", accent2: "#2F8F2B", onAccent: "#FFFFFF", border: "#1A1A1A", radius: "10px", shadow: "none", headerBg: "#3FA535", fontDisplay: "Montserrat", fontBody: "Poppins" } },
   { id: "emerald-fitness", name: "Emerald Fitness", plan: "pro", layout: "cards", buttonStyle: "soft", header: "cover", avatarShape: "circle", dark: true, fonts: ["Inter:wght@400;500;600;700;800"], tokens: { bg: "radial-gradient(ellipse at 50% 0%,#19351F 0%,#07110C 48%,#020805 100%)", surface: "#102016", text: "#F4F7F0", muted: "#B8C5B2", accent: "#9AD33B", accent2: "#3E9A45", onAccent: "#FFFFFF", border: "#263D2C", radius: "18px", shadow: "0 8px 24px -12px rgba(120,190,54,.32)", headerBg: "#142A1A", fontDisplay: "Inter", fontBody: "Inter" } },
 ];
-
-===== FILE:  =====
+===== FILE: src/lib/themes/registry.ts =====
 
 import { planAtLeast, type Plan } from "../plans";
 import { BUSINESS_THEMES } from "./business";
@@ -9639,8 +10735,7 @@ export function resolveTheme(themeId: string, plan: Plan): { theme: Theme; locke
 
 export const resolveCustomTokens = (custom: CustomTokens | undefined, plan: Plan) =>
   planAtLeast(plan, "pro") ? custom : undefined;
-
-===== FILE:  =====
+===== FILE: src/lib/themes/sample.ts =====
 
 import type { Profile } from "./types";
 
@@ -9663,8 +10758,7 @@ export const SAMPLE_PROFILE: Profile = {
     { type: "newsletter", title: "Rejoins ma newsletter", subtitle: "Conseils et actualités chaque semaine." },
   ],
 };
-
-===== FILE:  =====
+===== FILE: src/lib/themes/tokens.ts =====
 
 import type { CSSProperties } from "react";
 import { FONT_QUERIES } from "./fonts";
@@ -9723,8 +10817,7 @@ export function googleFontsHref(theme: Theme, custom?: CustomTokens): string | n
   if (!list.length) return null;
   return `https://fonts.googleapis.com/css2?${list.map((f) => `family=${f}`).join("&")}&display=swap`;
 }
-
-===== FILE:  =====
+===== FILE: src/lib/themes/types.ts =====
 
 import type { Plan } from "../plans";
 export type { Plan };
@@ -9842,8 +10935,7 @@ export interface Profile {
   blocks?: Block[];
   showBadge?: boolean;
 }
-
-===== FILE:  =====
+===== FILE: src/lib/types.ts =====
 
 import type { Plan } from "./plans";
 export type { Plan };
@@ -9955,8 +11047,7 @@ export interface Profile {
   blocks?: Block[];
   showBadge?: boolean;
 }
-
-===== FILE:  =====
+===== FILE: src/middleware.ts =====
 
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
@@ -10023,98 +11114,5 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: ["/dashboard/:path*", "/onboarding"],
 };
+===== FILE: supabase/schema.sql =====
 
-===== FILE:  =====
-
--- Table des profils
-CREATE TABLE public.profiles (
-  id UUID REFERENCES auth.users NOT NULL PRIMARY KEY,
-  username TEXT UNIQUE NOT NULL,
-  bio TEXT,
-  avatar_url TEXT,
-  theme TEXT DEFAULT 'fractal-dark',
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
-);
-
--- Table des liens
-CREATE TABLE public.links (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
-  title TEXT NOT NULL,
-  url TEXT NOT NULL,
-  icon TEXT,
-  display_order INT DEFAULT 0,
-  clicks INT DEFAULT 0,
-  is_active BOOLEAN DEFAULT true,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
-);
-
--- Index pour la performance
-CREATE INDEX idx_links_user_id ON public.links(user_id);
-CREATE INDEX idx_profiles_username ON public.profiles(username);
-
--- Row Level Security (RLS)
-ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.links ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Public profiles are viewable by everyone" ON public.profiles FOR SELECT USING (true);
-CREATE POLICY "Users can insert their own profile" ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);
-CREATE POLICY "Users can update their own profile" ON public.profiles FOR UPDATE USING (auth.uid() = id);
-
-CREATE POLICY "Public links are viewable by everyone" ON public.links FOR SELECT USING (true);
-CREATE POLICY "Users can insert their own links" ON public.links FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Users can update their own links" ON public.links FOR UPDATE USING (auth.uid() = user_id);
-CREATE POLICY "Users can delete their own links" ON public.links FOR DELETE USING (auth.uid() = user_id);
-
-===== FILE:  =====
-
-import type { Config } from "tailwindcss";
-
-const config: Config = {
-  content: [
-    "./src/app/**/*.{ts,tsx}",
-    "./src/components/**/*.{ts,tsx}",
-  ],
-  theme: {
-    extend: {
-      colors: {
-        // Variables RGB (mode clair/sombre auto)
-        bg: "rgb(var(--bg) / <alpha-value>)",
-        surface: "rgb(var(--surface) / <alpha-value>)",
-        soft: "rgb(var(--soft) / <alpha-value>)",
-        ink: "rgb(var(--ink) / <alpha-value>)",
-        muted: "rgb(var(--muted) / <alpha-value>)",
-        line: "rgb(var(--line) / <alpha-value>)",
-
-        // Palette Yekola Business
-        fractal: {
-          or: "#F9A825",
-          ocre: "#FF6A1A",
-          terra: "#C1440E",
-          creme: "#FFF9F3",
-        },
-
-        // Anciennes couleurs savane conservées pour compatibilité
-        savane: {
-          dark: "#0F1115",
-          card: "#1A1D24",
-          border: "#2D323E",
-        },
-      },
-      fontFamily: {
-        display: ["var(--font-montserrat)", "system-ui", "sans-serif"],
-        sans: ["var(--font-poppins)", "system-ui", "sans-serif"],
-      },
-      boxShadow: {
-        soft: "0 1px 2px rgb(0 0 0 / .04), 0 8px 24px -8px rgb(193 68 14 / .12)",
-        glow: "0 0 30px -8px rgb(255 106 26 / .35)",
-      },
-      backgroundImage: {
-        "yekola-gradient": "linear-gradient(135deg, #F9A825 0%, #FF6A1A 50%, #C1440E 100%)",
-      },
-    },
-  },
-  plugins: [],
-};
-
-export default config;

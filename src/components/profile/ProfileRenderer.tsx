@@ -4,8 +4,14 @@ import { planAtLeast, type Plan } from "@/lib/plans";
 import { safeImageUrl, safeUrl } from "@/lib/safe-url";
 import { resolveCustomTokens, resolveTheme } from "@/lib/themes/registry";
 import { googleFontsHref, themeCssVars } from "@/lib/themes/tokens";
-import type { Block, CustomTokens, LinkItem, Profile, Theme } from "@/lib/themes/types";
+import type { Block, CustomTokens, LinkItem, Profile, SocialType, Theme } from "@/lib/themes/types";
 import { BadgeCheck, ChevronDown, ChevronRight, LinkIcon, SmartLinkIcon, SocialIcon } from "./icons";
+
+/**
+ * Les 6 réseaux majeurs, toujours dans cet ordre en tête de la zone 1
+ * (thèmes à composition deux zones). Les autres réseaux suivent, dans l'ordre saisi.
+ */
+const POPULAR_SOCIALS: SocialType[] = ["facebook", "instagram", "tiktok", "x", "youtube", "linkedin"];
 
 type Props = {
   profile: Profile;
@@ -180,8 +186,15 @@ export function ProfileRenderer({ profile, plan, themeOverride, customOverride, 
   const href = (l: LinkItem) => (preview ? "#" : trackBase ? `${trackBase}/${l.id}` : safeUrl(l.url) ?? "#");
   // Le plan gratuit affiche toujours le badge ; Pro et Business peuvent le retirer.
   const showBadge = !planAtLeast(plan, "pro") || profile.showBadge !== false;
-  // Composition en deux zones (identité + réseaux / conversion) : thèmes Pro et Business uniquement.
-  const twoParts = theme.plan !== "free";
+  const twoZones = theme.twoZones === true;
+  // Zone 1 : les 6 réseaux majeurs d'abord (ordre fixe), les autres ensuite (ordre saisi, tri stable).
+  const socials = twoZones
+    ? [...profile.socials].sort((a, b) => {
+        const ra = POPULAR_SOCIALS.indexOf(a.type);
+        const rb = POPULAR_SOCIALS.indexOf(b.type);
+        return (ra === -1 ? 99 : ra) - (rb === -1 ? 99 : rb);
+      })
+    : profile.socials;
   const avatar = safeImageUrl(profile.avatarUrl);
   const cover = safeImageUrl(profile.coverUrl);
   const initial = profile.displayName.trim().charAt(0).toUpperCase() || "N";
@@ -194,7 +207,7 @@ export function ProfileRenderer({ profile, plan, themeOverride, customOverride, 
       data-btn={theme.buttonStyle}
       data-header={theme.header}
       data-avatar={theme.avatarShape}
-      data-parts={twoParts ? "two" : undefined}
+      data-parts={twoZones ? "two" : undefined}
       data-upper-links={theme.uppercaseLinks ? "true" : undefined}
       data-upper-name={theme.uppercaseName ? "true" : undefined}
     >
@@ -221,9 +234,9 @@ export function ProfileRenderer({ profile, plan, themeOverride, customOverride, 
           </h1>
           {profile.headline && <p className="nd-headline">{profile.headline}</p>}
           {profile.bio && <p className="nd-bio">{profile.bio}</p>}
-          {profile.socials.length > 0 && (
+          {socials.length > 0 && (
             <nav className="nd-socials" aria-label="Réseaux sociaux et moyens de contact">
-              {profile.socials.map((s) => (
+              {socials.map((s) => (
                 <a key={s.type} href={preview ? "#" : safeUrl(s.url) ?? "#"} aria-label={s.type} rel="noopener noreferrer">
                   <SocialIcon type={s.type} />
                 </a>
@@ -232,7 +245,7 @@ export function ProfileRenderer({ profile, plan, themeOverride, customOverride, 
           )}
         </header>
 
-        {/* ----- ZONE 2 : conversion & activités (offres, réservations, boutique, formulaires) ----- */}
+        {/* ----- ZONE 2 : conversion & activités (liens, offres, réservations, blocs) ----- */}
         <section className="nd-zone-main" aria-label="Offres, liens et actions">
           <nav className="nd-links" aria-label="Liens">
             {links.map((l) => (
