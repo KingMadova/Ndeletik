@@ -16,6 +16,7 @@ export default function AuthPage() {
   const [username, setUsername] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const router = useRouter();
 
   // Le lien « Connexion » de la landing page ouvre explicitement le mode connexion.
@@ -35,11 +36,23 @@ export default function AuthPage() {
     e.preventDefault();
     setLoading(true);
     setError("");
+    setSuccess("");
 
     try {
       if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
+        const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+        if (error) {
+          if (error.message.toLowerCase().includes("invalid login credentials")) {
+            throw new Error("Adresse e-mail ou mot de passe incorrect. Vérifiez vos identifiants puis réessayez.");
+          }
+          if (error.message.toLowerCase().includes("email not confirmed")) {
+            throw new Error("Votre adresse e-mail n’est pas encore confirmée. Consultez votre boîte de réception.");
+          }
+          if (error.message.toLowerCase().includes("too many requests")) {
+            throw new Error("Trop de tentatives. Patientez quelques minutes avant de réessayer.");
+          }
+          throw new Error("La connexion est momentanément impossible. Vérifiez votre connexion Internet puis réessayez.");
+        }
       } else {
         const rawSlug = username.trim() || generateSlug(email);
         const slug = rawSlug
@@ -58,8 +71,27 @@ export default function AuthPage() {
         }
         if (isReserved(slug)) throw new Error("Ce nom d'utilisateur est réservé.");
 
-        const { data: authData, error: authError } = await supabase.auth.signUp({ email, password });
-        if (authError) throw authError;
+        const { data: authData, error: authError } = await supabase.auth.signUp({ email: email.trim(), password });
+        if (authError) {
+          const message = authError.message.toLowerCase();
+          if (message.includes("already registered") || message.includes("already exists")) {
+            throw new Error("Un compte existe déjà avec cette adresse e-mail. Connectez-vous ou utilisez une autre adresse.");
+          }
+          if (message.includes("password")) {
+            throw new Error("Le mot de passe ne respecte pas les exigences de sécurité. Choisissez-en un autre.");
+          }
+          if (message.includes("rate limit") || message.includes("too many requests")) {
+            throw new Error("Trop de tentatives d’inscription. Patientez quelques minutes avant de réessayer.");
+          }
+          throw new Error("La création du compte a échoué. Vérifiez les informations saisies puis réessayez.");
+        }
+
+        // Avec la confirmation d'e-mail activée, Supabase ne fournit pas encore de session.
+        // On évite d'effectuer une insertion protégée par RLS avant la confirmation.
+        if (authData.user && !authData.session) {
+          setSuccess("Votre compte a été créé. Consultez votre boîte e-mail pour confirmer votre adresse, puis connectez-vous.");
+          return;
+        }
 
         if (authData.user) {
           const { error: profileError } = await supabase.from("profiles").insert({
@@ -71,9 +103,9 @@ export default function AuthPage() {
           });
 
           if (profileError) {
-            if (profileError.code === "23505") throw new Error("Ce pseudo est déjà pris, choisis-en un autre.");
+            if (profileError.code === "23505") throw new Error("Ce pseudo est déjà pris. Choisissez-en un autre.");
             if (profileError.message.includes("slug_reserved")) throw new Error("Ce pseudo est réservé.");
-            throw profileError;
+            throw new Error("Votre compte a été créé, mais votre profil n’a pas pu être initialisé. Connectez-vous et réessayez. Si le problème persiste, contactez l’assistance.");
           }
         }
       }
@@ -81,7 +113,7 @@ export default function AuthPage() {
       router.push("/dashboard");
       router.refresh();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Une erreur est survenue. Réessaie.");
+      setError(err instanceof Error ? err.message : "Une erreur est survenue. Réessayez dans quelques instants.");
     } finally {
       setLoading(false);
     }
@@ -115,6 +147,13 @@ export default function AuthPage() {
             {isLogin ? "Connectez-vous pour gérer votre page Ndeletik." : "Créez votre page et rassemblez vos liens en un seul endroit."}
           </p>
         </div>
+
+        {success && (
+          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} role="status"
+            className="mb-5 rounded-xl border border-emerald-400/30 bg-emerald-400/10 p-3 text-sm leading-5 text-emerald-100">
+            {success}
+          </motion.div>
+        )}
 
         {error && (
           <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} role="alert"
@@ -155,7 +194,7 @@ export default function AuthPage() {
         </div>
         <p className="text-center text-sm text-white/55">
           {isLogin ? "Pas encore de compte ?" : "Vous avez déjà un compte ?"}{" "}
-          <button type="button" onClick={() => { setIsLogin(!isLogin); setError(""); }}
+          <button type="button" onClick={() => { setIsLogin(!isLogin); setError(""); setSuccess(""); }}
             className="font-semibold text-rose-300 transition hover:text-rose-200">
             {isLogin ? "S'inscrire" : "Se connecter"}
           </button>
