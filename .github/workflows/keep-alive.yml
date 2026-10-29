@@ -2,16 +2,36 @@ name: Supabase Keep-Alive Ping
 
 on:
   schedule:
-    # Toutes les 5 heures (Supabase free tier dort après 1 semaine d'inactivité)
-    - cron: '0 */5 * * *'
-  workflow_dispatch: # Permet de lancer manuellement depuis l'onglet Actions
+    - cron: '0 */5 * * *'   # toutes les 5 heures
+  workflow_dispatch:
 
 jobs:
   ping-supabase:
     runs-on: ubuntu-latest
-    
     steps:
-      - name: Ping keep-alive endpoint
+      - name: Check env
         run: |
-          curl -f -X GET "${{ secrets.NEXT_PUBLIC_SITE_URL }}/api/keep-alive" || \
-          curl -f -X GET "https://ndeletik.vercel.app/api/keep-alive"
+          echo "URL principale : ${NEXT_PUBLIC_SITE_URL:-non définie}"
+          echo "Fallback        : https://ndeletik.vercel.app"
+        env:
+          NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+
+      - name: Ping keep-alive (avec détails)
+        run: |
+          URL="${NEXT_PUBLIC_SITE_URL:-https://ndeletik.vercel.app}/api/keep-alive"
+          echo "➡️  GET $URL"
+          HTTP_CODE=$(curl -s -o response.txt -w "%{http_code}" -X GET "$URL")
+          echo "⬅️  HTTP $HTTP_CODE"
+          cat response.txt
+          echo
+          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+            echo "✅ Keep-alive OK"
+          elif [ "$HTTP_CODE" = "500" ]; then
+            echo "⚠️  Supabase est probablement en pause. Réactive-le sur supabase.com/dashboard"
+            exit 1
+          else
+            echo "❌ Erreur HTTP inattendue"
+            exit 1
+          fi
+        env:
+          NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
