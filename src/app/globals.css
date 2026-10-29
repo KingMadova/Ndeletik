@@ -58,3 +58,36 @@ h1, h2, h3, h4 {
     transition: none !important;
   }
 }
+
+/* ---------- Auth : panneau noir, fond lumineux et accent corail ---------- */
+.auth-experience {
+  isolation: isolate;
+  background:
+    radial-gradient(ellipse at 12% 15%, rgb(34 197 94 / .82), transparent 36%),
+    radial-gradient(ellipse at 88% 18%, rgb(251 113 133 / .82), transparent 35%),
+    radial-gradient(ellipse at 12% 88%, rgb(251 146 60 / .72), transparent 38%),
+    radial-gradient(ellipse at 86% 84%, rgb(217 70 239 / .32), transparent 34%),
+    #101014;
+}
+.auth-experience::before {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  content: "";
+  background: linear-gradient(135deg, rgb(255 255 255 / .12), transparent 42%, rgb(255 255 255 / .05));
+  backdrop-filter: blur(34px);
+}
+.auth-glow { position: absolute; z-index: -1; width: 24rem; height: 24rem; border-radius: 9999px; filter: blur(90px); opacity: .38; pointer-events: none; }
+.auth-glow-one { top: 4%; left: 8%; background: #22c55e; }
+.auth-glow-two { right: 4%; bottom: 2%; background: #fb7185; }
+.auth-panel {
+  background: linear-gradient(155deg, rgb(15 15 18 / .97), rgb(3 3 5 / .985));
+  box-shadow: 0 28px 90px rgb(0 0 0 / .48), 0 1px 0 rgb(255 255 255 / .08) inset;
+  backdrop-filter: blur(24px);
+}
+.auth-primary { background: linear-gradient(100deg, #b92f3d 0%, #ed454e 55%, #ff6267 100%); box-shadow: 0 10px 24px rgb(237 69 78 / .22); }
+.auth-primary:hover { filter: brightness(1.07); box-shadow: 0 12px 30px rgb(237 69 78 / .32); }
+@media (max-width: 380px) {
+  .auth-panel { padding: 1.25rem; border-radius: 24px; }
+  .auth-panel h1 { font-size: 1.8rem; }
+}

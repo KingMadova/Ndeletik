@@ -53,6 +53,12 @@ function AuthInner() {
   const [info, setInfo] = useState("");
   const plan = params.get("plan");
 
+  useEffect(() => {
+    const mode = params.get("mode");
+    if (mode === "login") setIsLogin(true);
+    if (mode === "signup") setIsLogin(false);
+  }, [params]);
+
   /* Profil manquant (connexion Google / OAuth) : création automatique. */
   useEffect(() => {
     (async () => {
@@ -102,7 +108,13 @@ function AuthInner() {
         if (isReserved(slug)) throw new Error("Ce pseudo est réservé.");
         const { data, error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
-        if (data.user) {
+        // Avec la confirmation email activée, Supabase peut créer l'utilisateur sans session.
+        // Dans ce cas, ne pas tenter une insertion de profil protégée par RLS.
+        if (data.user && !data.session) {
+          setInfo("Votre compte a été créé. Consultez votre boîte e-mail pour confirmer votre adresse, puis connectez-vous.");
+          return;
+        }
+        if (data.user && data.session) {
           const { error: pe } = await supabase.from("profiles").insert({
             user_id: data.user.id,
             slug,
@@ -119,8 +131,9 @@ function AuthInner() {
       }
       router.push("/dashboard");
       router.refresh();
-    } catch (err: any) {
-      setError(fr(err.message));
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Une erreur est survenue. Réessayez dans quelques instants.";
+      setError(fr(message));
     } finally {
       setLoading(false);
     }

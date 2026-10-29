@@ -251,7 +251,7 @@ export function Hero() {
             transition={{ delay: 0.65 }}
             className="mt-4 md:mt-7"
           >
-            <BtnDark href="/auth" className="px-6 py-3 text-sm md:px-7 md:py-3.5 md:text-base">
+            <BtnDark href="/auth?mode=signup" className="px-6 py-3 text-sm md:px-7 md:py-3.5 md:text-base">
               Créer ma page gratuite
             </BtnDark>
           </motion.div>

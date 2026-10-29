@@ -21,15 +21,17 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  const { data: { user } } = await supabase.auth.getUser();
+// ...
+const { data: { user } } = await supabase.auth.getUser();
 
-  // Routes protégées : /dashboard, /dashboard/*, /onboarding
-  const protectedPaths = ["/dashboard", "/onboarding"];
-  const isProtected = protectedPaths.some((p) => request.nextUrl.pathname.startsWith(p));
+// Routes protégées : ajout de /admin
+const protectedPaths = ["/dashboard", "/onboarding", "/admin"];
+const isProtected = protectedPaths.some((p) => request.nextUrl.pathname.startsWith(p));
 
-  if (isProtected && !user) {
-    return NextResponse.redirect(new URL("/auth", request.url));
-  }
+if (isProtected && !user) {
+  return NextResponse.redirect(new URL("/auth", request.url));
+}
+// ...
 
   // Redirection onboarding : si l'utilisateur est connecté mais n'a pas complété l'onboarding
   if (user && request.nextUrl.pathname === "/dashboard") {
