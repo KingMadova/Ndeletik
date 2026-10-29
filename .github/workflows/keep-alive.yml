@@ -2,14 +2,16 @@ name: Supabase Keep-Alive Ping
 
 on:
   schedule:
-    # Exécute ce script tous les 3 jours à 10h00 UTC
-    - cron: '0 10 */3 * *'
-  workflow_dispatch: # Permet de le lancer manuellement depuis l'onglet Actions de GitHub
+    # Toutes les 5 heures (Supabase free tier dort après 1 semaine d'inactivité)
+    - cron: '0 */5 * * *'
+  workflow_dispatch: # Permet de lancer manuellement depuis l'onglet Actions
 
 jobs:
   ping-supabase:
     runs-on: ubuntu-latest
+    
     steps:
-      - name: Ping Vercel Keep-Alive Endpoint
+      - name: Ping keep-alive endpoint
         run: |
-          curl -f ${{ secrets.KEEP_ALIVE_URL }} || exit 1
+          curl -f -X GET "${{ secrets.NEXT_PUBLIC_SITE_URL }}/api/keep-alive" || \
+          curl -f -X GET "https://ndeletik.vercel.app/api/keep-alive"
