@@ -1,5 +1,6 @@
 // src/lib/payments/types.ts
 import type { Plan } from "@/lib/plans";
+export type { Plan } from "@/lib/plans";
 
 /** Devise supportée (XAF = FCFA, devise de l'Afrique centrale). */
 export type Currency = "XAF";
