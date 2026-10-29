@@ -4,11 +4,8 @@ import { planAtLeast, type Plan } from "@/lib/plans";
 import { safeImageUrl, safeUrl } from "@/lib/safe-url";
 import { resolveCustomTokens, resolveTheme } from "@/lib/themes/registry";
 import { googleFontsHref, themeCssVars } from "@/lib/themes/tokens";
-import type { Block, CustomTokens, LinkItem, Profile, SocialType, Theme } from "@/lib/themes/types";
+import type { Block, CustomTokens, LinkItem, Profile, Theme } from "@/lib/themes/types";
 import { BadgeCheck, ChevronDown, ChevronRight, LinkIcon, SmartLinkIcon, SocialIcon } from "./icons";
-
-/** Les 6 réseaux majeurs, toujours dans cet ordre en tête de la zone 1 (thèmes popularSocials). */
-const POPULAR_SOCIALS: SocialType[] = ["facebook", "instagram", "tiktok", "x", "youtube", "linkedin"];
 
 type Props = {
   profile: Profile;
@@ -24,33 +21,17 @@ type Props = {
   trackBase?: string;
 };
 
-type LinkViewProps = {
-  link: LinkItem;
-  layout: Theme["layout"];
-  href: string;
-  /** Côté d'ancrage d'une image popout (calculé par le parent). */
-  side: "left" | "right";
-};
-
-function LinkView({ link, layout, href, side }: LinkViewProps) {
+function LinkView({ link, layout, href }: { link: LinkItem; layout: Theme["layout"]; href: string }) {
   const featured = link.featured ? "true" : undefined;
-  const mode = link.imageMode ?? "cover";
-  const img = safeImageUrl(link.image);
-  const popout = mode === "popout" && !!img;
-
   if (layout === "banners") {
+    const img = safeImageUrl(link.image);
     return (
-      <a href={href} className={`nd-banner ${popout ? "nd-banner-popout" : ""}`} data-featured={featured}>
+      <a href={href} className="nd-banner" data-featured={featured}>
         <span
-          className={`nd-banner-media ${img && mode === "contain" ? "nd-media-contain" : ""} ${popout ? "nd-media-popout" : ""}`}
-          style={img && !popout ? { backgroundImage: `url("${img}")` } : undefined}
+          className="nd-banner-media"
+          style={img ? { backgroundImage: `url("${img}")` } : undefined}
         >
-          {popout ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={img!} alt="" className="nd-popout" />
-          ) : (
-            !img && <SmartLinkIcon url={link.url} name={link.icon} size={34} />
-          )}
+          {!img && <SmartLinkIcon url={link.url} name={link.icon} size={34} />}
         </span>
         <span className="nd-banner-body">
           <span className="nd-t">{link.title}</span>
@@ -70,11 +51,7 @@ function LinkView({ link, layout, href, side }: LinkViewProps) {
   }
   if (layout === "cards") {
     return (
-      <a href={href} className={`nd-link ${popout ? `nd-link-popout pad-${side}` : ""}`} data-featured={featured}>
-        {popout && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={img!} alt="" className={`nd-popout-card ${side}`} />
-        )}
+      <a href={href} className="nd-link" data-featured={featured}>
         <span className="nd-ic"><SmartLinkIcon url={link.url} name={link.icon} /></span>
         <span className="nd-text">
           <span className="nd-t">{link.title}</span>
@@ -86,11 +63,7 @@ function LinkView({ link, layout, href, side }: LinkViewProps) {
   }
   // pills
   return (
-    <a href={href} className={`nd-link ${popout ? `nd-link-popout pad-${side}` : ""}`} data-featured={featured}>
-      {popout && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={img!} alt="" className={`nd-popout-card ${side}`} />
-      )}
+    <a href={href} className="nd-link" data-featured={featured}>
       {link.icon && <span className="nd-ic"><SmartLinkIcon url={link.url} name={link.icon} size={16} /></span>}
       <span className="nd-t">{link.title}</span>
     </a>
@@ -207,23 +180,8 @@ export function ProfileRenderer({ profile, plan, themeOverride, customOverride, 
   const href = (l: LinkItem) => (preview ? "#" : trackBase ? `${trackBase}/${l.id}` : safeUrl(l.url) ?? "#");
   // Le plan gratuit affiche toujours le badge ; Pro et Business peuvent le retirer.
   const showBadge = !planAtLeast(plan, "pro") || profile.showBadge !== false;
-  // Composition en deux zones (identité + réseaux / conversion) : thèmes Pro et Business uniquement.
-  const twoParts = theme.plan !== "free";
-  // Rangée compacte avec les 6 réseaux majeurs d'abord (option de thème popularSocials).
-  const popular = theme.popularSocials === true;
-  const socials = popular
-    ? [...profile.socials].sort((a, b) => {
-        const ra = POPULAR_SOCIALS.indexOf(a.type);
-        const rb = POPULAR_SOCIALS.indexOf(b.type);
-        return (ra === -1 ? 99 : ra) - (rb === -1 ? 99 : rb);
-      })
-    : profile.socials;
-  // Côté d'ancrage des images popout : left / right / alternate (défaut).
-  const sideFor = (i: number): "left" | "right" =>
-    theme.popoutSide === "left" ? "left" : theme.popoutSide === "right" ? "right" : i % 2 === 0 ? "right" : "left";
   const avatar = safeImageUrl(profile.avatarUrl);
   const cover = safeImageUrl(profile.coverUrl);
-  const hero = safeImageUrl(profile.heroUrl);
   const initial = profile.displayName.trim().charAt(0).toUpperCase() || "N";
   return (
     <div
@@ -234,15 +192,11 @@ export function ProfileRenderer({ profile, plan, themeOverride, customOverride, 
       data-btn={theme.buttonStyle}
       data-header={theme.header}
       data-avatar={theme.avatarShape}
-      data-parts={twoParts ? "two" : undefined}
-      data-socials={popular ? "popular" : undefined}
-      data-decor={theme.decor && theme.decor !== "none" ? theme.decor : undefined}
       data-upper-links={theme.uppercaseLinks ? "true" : undefined}
       data-upper-name={theme.uppercaseName ? "true" : undefined}
     >
       {fontsHref && <link rel="stylesheet" href={fontsHref} />}
       <main className="nd-col">
-        {/* ----- ZONE 1 : identité + réseaux / moyens de contact ----- */}
         <header className="nd-header">
           {theme.header === "cover" && (
             <div
@@ -251,44 +205,28 @@ export function ProfileRenderer({ profile, plan, themeOverride, customOverride, 
               aria-hidden
             />
           )}
-          {theme.header !== "portrait" &&
-            (avatar ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={avatar} alt={profile.displayName} className="nd-avatar" />
-            ) : (
-              <div className="nd-avatar nd-avatar-fallback" aria-hidden>{initial}</div>
-            ))}
+          {avatar ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={avatar} alt={profile.displayName} className="nd-avatar" />
+          ) : (
+            <div className="nd-avatar nd-avatar-fallback" aria-hidden>{initial}</div>
+          )}
           <h1 className="nd-name">
             {profile.displayName}
             {profile.verified && <BadgeCheck size={20} className="nd-verified" aria-label="Profil vérifié" />}
           </h1>
           {profile.headline && <p className="nd-headline">{profile.headline}</p>}
           {profile.bio && <p className="nd-bio">{profile.bio}</p>}
-          {socials.length > 0 && (
-            <nav className="nd-socials" aria-label="Réseaux sociaux et moyens de contact">
-              {socials.map((s) => (
+          {profile.socials.length > 0 && (
+            <nav className="nd-socials" aria-label="Réseaux sociaux">
+              {profile.socials.map((s) => (
                 <a key={s.type} href={preview ? "#" : safeUrl(s.url) ?? "#"} aria-label={s.type} rel="noopener noreferrer">
                   <SocialIcon type={s.type} />
                 </a>
               ))}
             </nav>
           )}
-          {/* En-tête portrait : grand visage détouré qui chevauche le premier bloc */}
-          {theme.header === "portrait" && (
-            <div className="nd-portrait">
-              {hero ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={hero} alt="" className="nd-portrait-img" />
-              ) : avatar ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={avatar} alt={profile.displayName} className="nd-portrait-img nd-portrait-fallback" />
-              ) : (
-                <div className="nd-portrait-img nd-portrait-init" aria-hidden>{initial}</div>
-              )}
-            </div>
-          )}
         </header>
-<<<<<<< HEAD
         {theme.plan === "pro" || theme.plan === "business" ? (
           <section className="nd-conversion-zone" aria-label="Offres et activités">
             <div className="nd-zone-heading">
@@ -316,21 +254,6 @@ export function ProfileRenderer({ profile, plan, themeOverride, customOverride, 
             ))}
           </>
         )}
-=======
-
-        {/* ----- ZONE 2 : conversion & activités (liens, offres, réservations, blocs) ----- */}
-        <section className="nd-zone-main" aria-label="Offres, liens et actions">
-          <nav className="nd-links" aria-label="Liens">
-            {links.map((l, i) => (
-              <LinkView key={l.id} link={l} layout={theme.layout} href={href(l)} side={sideFor(i)} />
-            ))}
-          </nav>
-          {profile.blocks?.map((b, i) => (
-            <BlockView key={i} block={b} slug={profile.slug} preview={preview} />
-          ))}
-        </section>
-
->>>>>>> origin/master
         {showBadge && (
           <footer className="nd-foot">
             <Link href="/">Créé avec Ndeletik</Link>
