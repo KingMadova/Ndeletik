@@ -878,30 +878,6 @@ export default function AdminUsersPage() {
   );
 }
 
-===== FILE: src/app/api/click/route.ts =====
-
-import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabaseClient";
-
-export async function POST(request: Request) {
-  try {
-    const { linkId } = await request.json();
-
-    if (!linkId || typeof linkId !== "string") {
-      return NextResponse.json({ error: "linkId invalide" }, { status: 400 });
-    }
-
-    const { error } = await supabase.rpc("increment_clicks", {
-      link_id: linkId,
-    });
-
-    if (error) throw error;
-
-    return NextResponse.json({ success: true });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
-  }
-}
 ===== FILE: src/app/api/keep-alive/route.ts =====
 
 import { NextResponse } from 'next/server';
@@ -2687,18 +2663,18 @@ export const metadata: Metadata = {
     template: "%s — Ndeletik",
   },
   description:
-    "La page de liens des créateurs africains : liens illimités, statistiques, paiements Mobile Money et 18 thèmes conçus pour toi.",
+    "La page de liens des créateurs africains : liens illimités, statistiques, paiements Mobile Money et 20 thèmes conçus pour toi.",
+  // Pas de `images` ici : les fichiers app/opengraph-image.tsx et app/twitter-image.tsx
+  // génèrent automatiquement les images de partage (landing et par profil).
   openGraph: {
     title: "Ndeletik — Ta bio, tes liens, tes ventes",
     description: "Crée ta page de liens unique en 5 minutes. Paiement Mobile Money, stats en temps réel.",
     type: "website",
-    images: ["/og-image.png"],
   },
   twitter: {
     card: "summary_large_image",
     title: "Ndeletik — Ta bio, tes liens, tes ventes",
     description: "Crée ta page de liens unique en 5 minutes. Paiement Mobile Money, stats en temps réel.",
-    images: ["/og-image.png"],
   },
 };
 
@@ -2750,10 +2726,12 @@ export default function NotFound() {
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight, ArrowLeft, Loader2, SkipForward } from "lucide-react";
+import { ArrowRight, ArrowLeft, Loader2, SkipForward, Copy, Check } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { FREE_THEMES } from "@/lib/themes/free";
 import { LinkTemplates } from "@/components/dashboard/LinkTemplates";
+import { detectIcon } from "@/lib/detect-icon";
+import { normalizeUrl } from "@/components/dashboard/blockMeta";
 
 const STEPS = ["Profil", "Premier lien", "Thème", "Prêt !"] as const;
 type Step = (typeof STEPS)[number];
@@ -2763,6 +2741,8 @@ export default function OnboardingPage() {
   const [step, setStep] = useState<Step>("Profil");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [slug, setSlug] = useState("");
+  const [copied, setCopied] = useState(false);
 
   // Étape 1 : Profil
   const [displayName, setDisplayName] = useState("");
@@ -2786,6 +2766,19 @@ export default function OnboardingPage() {
     if (idx > 0) setStep(STEPS[idx - 1]);
   };
 
+  const publicUrl =
+    typeof window !== "undefined" && slug ? `${window.location.origin}/@${slug}` : "";
+
+  const copyUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(publicUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* copie impossible */
+    }
+  };
+
   const complete = async (skip = false) => {
     setLoading(true);
     setError("");
@@ -2796,13 +2789,13 @@ export default function OnboardingPage() {
 
       const { data: profile } = await supabase
         .from("profiles")
-        .select("id")
+        .select("id, slug")
         .eq("user_id", user.id)
         .single();
 
       if (!profile) throw new Error("Profil introuvable");
+      setSlug(profile.slug);
 
-      // Mise à jour du profil
       if (!skip) {
         const { error: profileError } = await supabase
           .from("profiles")
@@ -2817,18 +2810,18 @@ export default function OnboardingPage() {
 
         if (profileError) throw profileError;
 
-        // Création du premier lien
         if (linkTitle && linkUrl) {
+          const clean = normalizeUrl(linkUrl);
           const { error: linkError } = await supabase.from("links").insert({
             profile_id: profile.id,
             title: linkTitle,
-            url: linkUrl,
+            url: clean,
+            icon: detectIcon(clean),
             position: 0,
           });
           if (linkError) throw linkError;
         }
       } else {
-        // Skip : juste marquer comme complété
         const { error: skipError } = await supabase
           .from("profiles")
           .update({ onboarding_completed: true })
@@ -3062,7 +3055,16 @@ export default function OnboardingPage() {
 
               <div className="mx-auto mb-6 max-w-xs rounded-2xl border border-line bg-soft p-4">
                 <p className="text-xs text-muted mb-1">Ton lien public</p>
-                <p className="text-sm font-semibold text-fractal-terra truncate">ndeletik.com/@alvine</p>
+                <p className="text-sm font-semibold text-fractal-terra truncate">{publicUrl || "…"}</p>
+                <button
+                  type="button"
+                  onClick={copyUrl}
+                  disabled={!publicUrl}
+                  className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1.5 text-xs font-medium text-muted hover:border-fractal-ocre hover:text-fractal-terra transition-colors disabled:opacity-40"
+                >
+                  {copied ? <Check size={13} /> : <Copy size={13} />}
+                  {copied ? "Copié !" : "Copier le lien"}
+                </button>
               </div>
 
               <div className="flex gap-3">
@@ -4503,6 +4505,8 @@ export type ProfilePatch = Partial<{
   bio: string | undefined;
   avatarUrl: string | undefined;
   coverUrl: string | undefined;
+  country: string | undefined;
+  heroUrl: string | undefined;
 }>;
 
 const COLUMNS: Record<keyof ProfilePatch, string> = {
@@ -4512,6 +4516,8 @@ const COLUMNS: Record<keyof ProfilePatch, string> = {
   bio: "bio",
   avatarUrl: "avatar_url",
   coverUrl: "cover_url",
+  country: "country",
+  heroUrl: "hero_url",
 };
 
 type Ctx = {
@@ -4568,7 +4574,6 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
 function Inner({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { toast } = useToast();
-
   const [userId, setUserId] = useState<string | null>(null);
   const [plan, setPlan] = useState<Plan>("free");
   const [profiles, setProfiles] = useState<DbProfile[]>([]);
@@ -4587,14 +4592,12 @@ function Inner({ children }: { children: ReactNode }) {
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return router.replace("/auth");
-
       const [{ data: owned }, { data: myPlan }] = await Promise.all([
         supabase.from("profiles").select("*").eq("user_id", session.user.id),
         supabase.rpc("my_plan"),
       ]);
       const list = ((owned ?? []) as DbProfile[]).slice().sort(byCreated);
       if (list.length === 0) return router.replace("/onboarding");
-
       const remembered = readCookie();
       setUserId(session.user.id);
       setPlan(["free", "pro", "business"].includes(myPlan) ? (myPlan as Plan) : "free");
@@ -4630,6 +4633,7 @@ function Inner({ children }: { children: ReactNode }) {
   );
 
   const ready = booted && !!row && row.id === profileId;
+
   const publicUrl = useMemo(
     () => (typeof window !== "undefined" && row ? `${window.location.origin}/@${row.slug}` : ""),
     [row]
@@ -4753,7 +4757,6 @@ function Inner({ children }: { children: ReactNode }) {
       update[COLUMNS[k]] = v ? v : null;
     });
     if (Object.keys(update).length === 0) return true;
-
     const prev = row;
     setRow({ ...row, ...update });
     const { error } = await supabase.from("profiles").update(update).eq("id", row.id);
@@ -4822,7 +4825,6 @@ function Inner({ children }: { children: ReactNode }) {
 
   return <DashboardCtx.Provider value={value}>{children}</DashboardCtx.Provider>;
 }
-
 ===== FILE: src/components/dashboard/DashboardShell.tsx =====
 
 "use client";
@@ -5278,6 +5280,7 @@ import { detectIcon } from "@/lib/detect-icon";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Button } from "@/components/ui/Button";
 import { Field, Switch, inputClass } from "@/components/ui/Field";
+import { LinkImageField } from "@/components/editor/LinkImageField";
 import { getBlockMeta, normalizeUrl } from "./blockMeta";
 import { useToast } from "./Toast";
 
@@ -5334,7 +5337,6 @@ export function LinkItem({ link, onUpdate, onDelete, onDragEnd, onShowAnalytics 
         >
           <GripVertical size={18} aria-hidden />
         </button>
-
         <span
           className={clsx(
             "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white shadow-soft",
@@ -5344,7 +5346,6 @@ export function LinkItem({ link, onUpdate, onDelete, onDragEnd, onShowAnalytics 
         >
           <Icon size={18} aria-hidden />
         </span>
-
         <div className={clsx("min-w-0 flex-1", !link.enabled && "opacity-60")}>
           <p className="truncate text-sm font-semibold text-ink">{link.title}</p>
           <p className="truncate text-xs text-muted">
@@ -5352,7 +5353,6 @@ export function LinkItem({ link, onUpdate, onDelete, onDragEnd, onShowAnalytics 
             {link.url.replace(/^https?:\/\//, "")}
           </p>
         </div>
-
         <button
           type="button"
           onClick={() => onShowAnalytics?.(link)}
@@ -5362,13 +5362,11 @@ export function LinkItem({ link, onUpdate, onDelete, onDragEnd, onShowAnalytics 
         >
           <BarChart3 size={13} aria-hidden /> {link.clicks} clic{link.clicks > 1 ? "s" : ""}
         </button>
-
         <Switch
           checked={link.enabled}
           onChange={(v) => onUpdate(link.id, { enabled: v })}
           label={link.enabled ? "Masquer ce lien de ma page" : "Publier ce lien sur ma page"}
         />
-
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
@@ -5403,6 +5401,14 @@ export function LinkItem({ link, onUpdate, onDelete, onDragEnd, onShowAnalytics 
                   className={inputClass}
                 />
               </Field>
+              {/* Image du lien : cover (fond), popout (détourée qui déborde), contain (entière) */}
+              <LinkImageField
+                kind="link"
+                value={link.image_url ?? null}
+                mode={link.image_mode ?? "cover"}
+                onImage={(u) => onUpdate(link.id, { image_url: u })}
+                onMode={(m) => onUpdate(link.id, { image_mode: m })}
+              />
               <div className="flex flex-wrap items-center gap-2 pt-1">
                 <Button variant="danger" size="sm" onClick={() => setConfirming(true)}>
                   <Trash2 size={14} aria-hidden /> Supprimer
@@ -5438,7 +5444,6 @@ export function LinkItem({ link, onUpdate, onDelete, onDragEnd, onShowAnalytics 
     </Reorder.Item>
   );
 }
-
 ===== FILE: src/components/dashboard/LinkTemplates.tsx =====
 
 "use client";
@@ -5591,79 +5596,6 @@ export function OfflineBanner() {
     </div>
   );
 }
-===== FILE: src/components/dashboard/PhonePreview.tsx =====
-
-"use client";
-
-import { ArrowUpRight } from "lucide-react";
-import type { LinkItem, Profile } from "@/lib/themes/types";
-import { getBlockMeta } from "./blockMeta";
-
-export function PhonePreview({ profile, links }: { profile: Profile; links: LinkItem[] }) {
-  const active = links.filter((l) => l.enabled !== false);
-
-  return (
-    <div className="mx-auto w-[250px] rounded-[2.2rem] border-[7px] border-ink bg-surface overflow-hidden shadow-xl ring-8 ring-fractal-or/20">
-      {/* Encoche */}
-      <div className="h-5 bg-surface relative">
-        <div className="absolute left-1/2 -translate-x-1/2 top-1 h-3 w-16 rounded-full bg-ink" />
-      </div>
-
-      <div className="h-[430px] overflow-y-auto bg-soft [scrollbar-width:none]">
-        {profile.coverUrl && (
-          <div
-            className="h-16 bg-cover bg-center"
-            style={{ backgroundImage: `url(${profile.coverUrl})` }}
-          />
-        )}
-        <div className={`${profile.coverUrl ? "-mt-8" : "mt-4"} flex flex-col items-center px-3 pb-4`}>
-          <div className="rounded-full ring-4 ring-surface">
-            {profile.avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={profile.avatarUrl}
-                alt={profile.displayName}
-                className="h-16 w-16 rounded-full object-cover"
-              />
-            ) : (
-              <div className="h-16 w-16 rounded-full bg-fractal-ocre text-white flex items-center justify-center font-bold text-xl">
-                {profile.displayName.slice(0, 2).toUpperCase()}
-              </div>
-            )}
-          </div>
-          <p className="mt-2 text-sm font-display font-bold text-ink">
-            {profile.displayName || profile.slug}
-          </p>
-          {profile.bio && (
-            <p className="mt-1 text-[10px] leading-snug text-center text-muted line-clamp-3">{profile.bio}</p>
-          )}
-
-          <div className="mt-4 w-full space-y-2">
-            {active.length === 0 && (
-              <p className="text-center text-[11px] text-muted py-6">Aucun bloc actif</p>
-            )}
-            {active.map((l, i) => {
-              const { Icon, bg } = getBlockMeta(l.url);
-              return i === 0 ? (
-                <div key={l.id} className="flex items-center justify-between rounded-xl bg-ink text-bg px-3 py-3">
-                  <span className="text-[11px] font-semibold truncate">{l.title}</span>
-                  <ArrowUpRight size={14} />
-                </div>
-              ) : (
-                <div key={l.id} className="flex items-center gap-2 rounded-xl bg-surface border border-line px-2.5 py-2.5">
-                  <span className={`h-6 w-6 rounded-md ${bg} text-white flex items-center justify-center shrink-0`}>
-                    <Icon size={12} />
-                  </span>
-                  <span className="text-[11px] font-semibold text-ink truncate">{l.title}</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 ===== FILE: src/components/dashboard/ProfileAvatar.tsx =====
 
 import type { DbProfile } from "@/lib/dashboard-types";
@@ -5701,110 +5633,6 @@ export function ProfileAvatar({
   );
 }
 
-===== FILE: src/components/dashboard/ProfileCard.tsx =====
-
-"use client";
-
-import { Copy, Share2, Globe } from "lucide-react";
-import type { Profile } from "@/lib/types";
-
-export type { Profile };
-
-export function Banner({ url, className = "" }: { url: string | null; className?: string }) {
-  if (url) {
-    return (
-      <div
-        className={`w-full bg-cover bg-center ${className}`}
-        style={{ backgroundImage: `url(${url})` }}
-        role="img"
-        aria-label="Bannière du profil"
-      />
-    );
-  }
-  return <div className={`w-full bg-fractal-ocre/40 ${className}`} />;
-}
-
-export function Avatar({ profile, size = 88 }: { profile: Profile; size?: number }) {
-  const name = profile.display_name || profile.slug;
-  const initials = name.slice(0, 2).toUpperCase();
-
-  if (profile.avatar_url) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={profile.avatar_url}
-        alt={name}
-        width={size}
-        height={size}
-        className="rounded-full object-cover bg-surface"
-        style={{ width: size, height: size }}
-      />
-    );
-  }
-  return (
-    <div
-      className="rounded-full bg-fractal-ocre text-white flex items-center justify-center font-bold select-none"
-      style={{ width: size, height: size, fontSize: Math.round(size / 2.6) }}
-      aria-label={name}
-    >
-      {initials}
-    </div>
-  );
-}
-
-type ProfileCardProps = {
-  profile: Profile;
-  publicUrl: string;
-  onCopy: () => void;
-  onShare: () => void;
-};
-
-export function ProfileCard({ profile, publicUrl, onCopy, onShare }: ProfileCardProps) {
-  const shortUrl = publicUrl.replace(/^https?:\/\//, "");
-
-  return (
-    <div className="relative z-10 px-4 sm:px-6">
-      <div className="-mt-6 bg-surface rounded-2xl border border-line shadow-soft p-5 flex flex-col lg:flex-row lg:items-center gap-6">
-        <div className="flex items-start gap-4 flex-1 min-w-0">
-          <div className="-mt-12 shrink-0 rounded-full ring-4 ring-surface shadow-soft">
-            <Avatar profile={profile} size={88} />
-          </div>
-          <div className="min-w-0 pt-8">
-            {profile.country && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-soft text-muted text-[11px] px-2 py-0.5 mb-1">
-                <Globe size={11} /> {profile.country}
-              </span>
-            )}
-            <h2 className="text-lg font-display font-extrabold truncate">{profile.display_name}</h2>
-            {profile.bio && <p className="text-xs text-muted truncate">{profile.bio}</p>}
-          </div>
-        </div>
-
-        <div className="lg:w-[26rem] shrink-0">
-          <div className="mb-1.5 text-xs font-semibold">Lien Ndeletik</div>
-          <div className="flex items-stretch gap-2">
-            <div className="flex-1 min-w-0 flex items-center gap-2 rounded-lg border border-line bg-bg px-3 py-2">
-              <span className="text-xs text-muted truncate">{shortUrl}</span>
-              <button
-                onClick={onCopy}
-                aria-label="Copier le lien"
-                className="ml-auto p-1 rounded hover:bg-soft text-muted shrink-0"
-              >
-                <Copy size={13} />
-              </button>
-            </div>
-            <button
-              onClick={onShare}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-fractal-ocre hover:bg-fractal-terra text-white text-xs font-semibold px-3.5 py-2.5 shrink-0 transition-colors"
-            >
-              <Share2 size={13} /> Partager
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 ===== FILE: src/components/dashboard/ProfileForm.tsx =====
 
 "use client";
@@ -5813,11 +5641,13 @@ import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card, CardTitle } from "@/components/ui/Card";
 import { Field, inputClass } from "@/components/ui/Field";
+import { LinkImageField } from "@/components/editor/LinkImageField";
+import { COUNTRY_GROUPS } from "@/lib/countries";
 import { useDashboard } from "./DashboardProvider";
 import { ProfileAvatar } from "./ProfileAvatar";
 import { UploadButton } from "./UploadButton";
 
-/** Photo, bannière et informations du profil. À monter avec key={profileId} pour repartir des bonnes valeurs. */
+/** Photo, bannière, portrait d'en-tête et informations du profil. À monter avec key={profileId}. */
 export function ProfileForm() {
   const { row, saveProfile } = useDashboard();
   const [f, setF] = useState({
@@ -5827,19 +5657,25 @@ export function ProfileForm() {
     bio: row?.bio ?? "",
     avatarUrl: row?.avatar_url ?? "",
     coverUrl: row?.cover_url ?? "",
+    heroUrl: row?.hero_url ?? "",
+    country: row?.country ?? "",
   });
   const [saving, setSaving] = useState(false);
+
   if (!row) return null;
 
-  const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-    setF((p) => ({ ...p, [k]: e.target.value }));
+  const set =
+    (k: keyof typeof f) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
+      setF((p) => ({ ...p, [k]: e.target.value }));
 
   const cleanSlug = f.slug.trim().toLowerCase().replace(/[^a-z0-9_.-]/g, "") || row.slug;
   const dirty =
     cleanSlug !== row.slug ||
     f.displayName.trim() !== row.display_name ||
     f.headline.trim() !== (row.headline ?? "") ||
-    f.bio.trim() !== (row.bio ?? "");
+    f.bio.trim() !== (row.bio ?? "") ||
+    f.country !== (row.country ?? "");
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -5849,6 +5685,7 @@ export function ProfileForm() {
       displayName: f.displayName.trim() || row.display_name,
       headline: f.headline.trim() || undefined,
       bio: f.bio.trim() || undefined,
+      country: f.country || undefined,
     });
     setSaving(false);
   };
@@ -5883,6 +5720,20 @@ export function ProfileForm() {
         />
       </Card>
 
+      <Card>
+        <CardTitle hint="PNG ou WebP à fond transparent, 2 Mo maximum. Utilisé par l'en-tête « portrait » (thème Or premium).">
+          Portrait d'en-tête (détouré)
+        </CardTitle>
+        <LinkImageField
+          kind="hero"
+          value={f.heroUrl || null}
+          onImage={(url) => {
+            setF((p) => ({ ...p, heroUrl: url ?? "" }));
+            saveProfile({ heroUrl: url || undefined });
+          }}
+        />
+      </Card>
+
       <Card className="space-y-4">
         <CardTitle>Informations</CardTitle>
         <Field label="Pseudo" hint={`Ton adresse publique : /@${cleanSlug}`}>
@@ -5892,10 +5743,33 @@ export function ProfileForm() {
           <input value={f.displayName} onChange={set("displayName")} className={inputClass} />
         </Field>
         <Field label="Titre (sous le nom)">
-          <input value={f.headline} onChange={set("headline")} className={inputClass} placeholder="Ex : Coach business · Pointe-Noire" />
+          <input
+            value={f.headline}
+            onChange={set("headline")}
+            className={inputClass}
+            placeholder="Ex : Coach business · Pointe-Noire"
+          />
         </Field>
         <Field label="Bio">
           <textarea rows={3} value={f.bio} onChange={set("bio")} className={inputClass} />
+        </Field>
+        <Field
+          label="Pays"
+          hint="Sert à tes statistiques (carte des visiteurs) et à adapter tes moyens de paiement."
+        >
+          <select value={f.country} onChange={set("country")} className={inputClass}>
+            <option value="">— Choisir mon pays —</option>
+            {COUNTRY_GROUPS.map((g) => (
+              <optgroup key={g.label} label={g.label}>
+                {g.countries.map((c) => (
+                  <option key={c.name} value={c.name}>
+                    {c.name}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+            <option value="Autre">Autre (non listé)</option>
+          </select>
         </Field>
         <Button type="submit" size="lg" full disabled={!dirty || saving}>
           {saving ? "Enregistrement…" : dirty ? "Enregistrer les modifications" : "Aucune modification"}
@@ -5904,7 +5778,6 @@ export function ProfileForm() {
     </form>
   );
 }
-
 ===== FILE: src/components/dashboard/ShortLinkManager.tsx =====
 
 "use client";
@@ -8327,7 +8200,7 @@ const plans = {
     m: 3000,
     feats: [
       "Liens illimités",
-      "7 thèmes Pro + couleurs personnalisables",
+      "8 thèmes Pro + couleurs personnalisables",
       "Paiement Mobile Money",
       "Statistiques détaillées",
       "Sans badge Ndeletik",
@@ -8337,7 +8210,7 @@ const plans = {
     m: 9000,
     feats: [
       "Tout le plan Pro",
-      "7 thèmes Business (bannières, couvertures)",
+      "8 thèmes Business (bannières, couvertures)",
       "Domaine personnalisé",
       "Export des données",
       "Support prioritaire",
@@ -8346,6 +8219,7 @@ const plans = {
 } as const;
 
 type Plan = keyof typeof plans;
+const PLAN_SLUG: Record<Plan, string> = { Gratuit: "free", Pro: "pro", Business: "business" };
 
 export function Pricing() {
   const [plan, setPlan] = useState<Plan>("Pro");
@@ -8428,7 +8302,10 @@ export function Pricing() {
               </span>
               <span className="ml-1 text-sm text-muted">FCFA / mois</span>
             </div>
-            <Link href="/auth?mode=signup" className="rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-bg">
+            <Link
+              href={`/auth?mode=signup&plan=${PLAN_SLUG[plan]}`}
+              className="rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-bg"
+            >
               Choisir {plan}
             </Link>
           </div>
@@ -8565,8 +8442,11 @@ import { planAtLeast, type Plan } from "@/lib/plans";
 import { safeImageUrl, safeUrl } from "@/lib/safe-url";
 import { resolveCustomTokens, resolveTheme } from "@/lib/themes/registry";
 import { googleFontsHref, themeCssVars } from "@/lib/themes/tokens";
-import type { Block, CustomTokens, LinkItem, Profile, Theme } from "@/lib/themes/types";
+import type { Block, CustomTokens, LinkItem, Profile, SocialType, Theme } from "@/lib/themes/types";
 import { BadgeCheck, ChevronDown, ChevronRight, LinkIcon, SmartLinkIcon, SocialIcon } from "./icons";
+
+/** Les 6 réseaux majeurs, toujours dans cet ordre en tête de la zone 1 (thèmes popularSocials). */
+const POPULAR_SOCIALS: SocialType[] = ["facebook", "instagram", "tiktok", "x", "youtube", "linkedin"];
 
 type Props = {
   profile: Profile;
@@ -8582,17 +8462,33 @@ type Props = {
   trackBase?: string;
 };
 
-function LinkView({ link, layout, href }: { link: LinkItem; layout: Theme["layout"]; href: string }) {
+type LinkViewProps = {
+  link: LinkItem;
+  layout: Theme["layout"];
+  href: string;
+  /** Côté d'ancrage d'une image popout (calculé par le parent). */
+  side: "left" | "right";
+};
+
+function LinkView({ link, layout, href, side }: LinkViewProps) {
   const featured = link.featured ? "true" : undefined;
+  const mode = link.imageMode ?? "cover";
+  const img = safeImageUrl(link.image);
+  const popout = mode === "popout" && !!img;
+
   if (layout === "banners") {
-    const img = safeImageUrl(link.image);
     return (
-      <a href={href} className="nd-banner" data-featured={featured}>
+      <a href={href} className={`nd-banner ${popout ? "nd-banner-popout" : ""}`} data-featured={featured}>
         <span
-          className="nd-banner-media"
-          style={img ? { backgroundImage: `url("${img}")` } : undefined}
+          className={`nd-banner-media ${img && mode === "contain" ? "nd-media-contain" : ""} ${popout ? "nd-media-popout" : ""}`}
+          style={img && !popout ? { backgroundImage: `url("${img}")` } : undefined}
         >
-          {!img && <SmartLinkIcon url={link.url} name={link.icon} size={34} />}
+          {popout ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={img!} alt="" className="nd-popout" />
+          ) : (
+            !img && <SmartLinkIcon url={link.url} name={link.icon} size={34} />
+          )}
         </span>
         <span className="nd-banner-body">
           <span className="nd-t">{link.title}</span>
@@ -8612,7 +8508,11 @@ function LinkView({ link, layout, href }: { link: LinkItem; layout: Theme["layou
   }
   if (layout === "cards") {
     return (
-      <a href={href} className="nd-link" data-featured={featured}>
+      <a href={href} className={`nd-link ${popout ? `nd-link-popout pad-${side}` : ""}`} data-featured={featured}>
+        {popout && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={img!} alt="" className={`nd-popout-card ${side}`} />
+        )}
         <span className="nd-ic"><SmartLinkIcon url={link.url} name={link.icon} /></span>
         <span className="nd-text">
           <span className="nd-t">{link.title}</span>
@@ -8624,7 +8524,11 @@ function LinkView({ link, layout, href }: { link: LinkItem; layout: Theme["layou
   }
   // pills
   return (
-    <a href={href} className="nd-link" data-featured={featured}>
+    <a href={href} className={`nd-link ${popout ? `nd-link-popout pad-${side}` : ""}`} data-featured={featured}>
+      {popout && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={img!} alt="" className={`nd-popout-card ${side}`} />
+      )}
       {link.icon && <span className="nd-ic"><SmartLinkIcon url={link.url} name={link.icon} size={16} /></span>}
       <span className="nd-t">{link.title}</span>
     </a>
@@ -8743,8 +8647,21 @@ export function ProfileRenderer({ profile, plan, themeOverride, customOverride, 
   const showBadge = !planAtLeast(plan, "pro") || profile.showBadge !== false;
   // Composition en deux zones (identité + réseaux / conversion) : thèmes Pro et Business uniquement.
   const twoParts = theme.plan !== "free";
+  // Rangée compacte avec les 6 réseaux majeurs d'abord (option de thème popularSocials).
+  const popular = theme.popularSocials === true;
+  const socials = popular
+    ? [...profile.socials].sort((a, b) => {
+        const ra = POPULAR_SOCIALS.indexOf(a.type);
+        const rb = POPULAR_SOCIALS.indexOf(b.type);
+        return (ra === -1 ? 99 : ra) - (rb === -1 ? 99 : rb);
+      })
+    : profile.socials;
+  // Côté d'ancrage des images popout : left / right / alternate (défaut).
+  const sideFor = (i: number): "left" | "right" =>
+    theme.popoutSide === "left" ? "left" : theme.popoutSide === "right" ? "right" : i % 2 === 0 ? "right" : "left";
   const avatar = safeImageUrl(profile.avatarUrl);
   const cover = safeImageUrl(profile.coverUrl);
+  const hero = safeImageUrl(profile.heroUrl);
   const initial = profile.displayName.trim().charAt(0).toUpperCase() || "N";
   return (
     <div
@@ -8756,6 +8673,8 @@ export function ProfileRenderer({ profile, plan, themeOverride, customOverride, 
       data-header={theme.header}
       data-avatar={theme.avatarShape}
       data-parts={twoParts ? "two" : undefined}
+      data-socials={popular ? "popular" : undefined}
+      data-decor={theme.decor && theme.decor !== "none" ? theme.decor : undefined}
       data-upper-links={theme.uppercaseLinks ? "true" : undefined}
       data-upper-name={theme.uppercaseName ? "true" : undefined}
     >
@@ -8770,34 +8689,49 @@ export function ProfileRenderer({ profile, plan, themeOverride, customOverride, 
               aria-hidden
             />
           )}
-          {avatar ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={avatar} alt={profile.displayName} className="nd-avatar" />
-          ) : (
-            <div className="nd-avatar nd-avatar-fallback" aria-hidden>{initial}</div>
-          )}
+          {theme.header !== "portrait" &&
+            (avatar ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={avatar} alt={profile.displayName} className="nd-avatar" />
+            ) : (
+              <div className="nd-avatar nd-avatar-fallback" aria-hidden>{initial}</div>
+            ))}
           <h1 className="nd-name">
             {profile.displayName}
             {profile.verified && <BadgeCheck size={20} className="nd-verified" aria-label="Profil vérifié" />}
           </h1>
           {profile.headline && <p className="nd-headline">{profile.headline}</p>}
           {profile.bio && <p className="nd-bio">{profile.bio}</p>}
-          {profile.socials.length > 0 && (
+          {socials.length > 0 && (
             <nav className="nd-socials" aria-label="Réseaux sociaux et moyens de contact">
-              {profile.socials.map((s) => (
+              {socials.map((s) => (
                 <a key={s.type} href={preview ? "#" : safeUrl(s.url) ?? "#"} aria-label={s.type} rel="noopener noreferrer">
                   <SocialIcon type={s.type} />
                 </a>
               ))}
             </nav>
           )}
+          {/* En-tête portrait : grand visage détouré qui chevauche le premier bloc */}
+          {theme.header === "portrait" && (
+            <div className="nd-portrait">
+              {hero ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={hero} alt="" className="nd-portrait-img" />
+              ) : avatar ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={avatar} alt={profile.displayName} className="nd-portrait-img nd-portrait-fallback" />
+              ) : (
+                <div className="nd-portrait-img nd-portrait-init" aria-hidden>{initial}</div>
+              )}
+            </div>
+          )}
         </header>
 
-        {/* ----- ZONE 2 : conversion & activités (offres, réservations, boutique, formulaires) ----- */}
+        {/* ----- ZONE 2 : conversion & activités (liens, offres, réservations, blocs) ----- */}
         <section className="nd-zone-main" aria-label="Offres, liens et actions">
           <nav className="nd-links" aria-label="Liens">
-            {links.map((l) => (
-              <LinkView key={l.id} link={l} layout={theme.layout} href={href(l)} />
+            {links.map((l, i) => (
+              <LinkView key={l.id} link={l} layout={theme.layout} href={href(l)} side={sideFor(i)} />
             ))}
           </nav>
           {profile.blocks?.map((b, i) => (
@@ -8918,6 +8852,7 @@ export { BadgeCheck, ChevronDown, ChevronRight };
 .nd-col { width: 100%; max-width: 440px; padding: 0 20px 32px; display: flex; flex-direction: column; align-items: center; gap: 16px; }
 /* ---------- En-tête ---------- */
 .nd-header { position: relative; width: calc(100% + 40px); margin: 0 -20px; padding: 44px 20px 0; display: flex; flex-direction: column; align-items: center; text-align: center; }
+.nd-header > * { position: relative; z-index: 1; }
 .nd-avatar { width: 112px; height: 112px; object-fit: cover; border: 3px solid var(--p-accent); position: relative; z-index: 1; background: var(--p-surface); }
 .nd-avatar-fallback { display: grid; place-items: center; background: var(--p-accent); color: var(--p-on-accent); font: 800 2.4rem var(--p-font-display), sans-serif; }
 .nd-profile[data-avatar="circle"] .nd-avatar { border-radius: 50%; }
@@ -8937,6 +8872,18 @@ export { BadgeCheck, ChevronDown, ChevronRight };
 .nd-socials { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 16px; }
 .nd-socials a { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 50%; background: var(--p-surface); border: 1px solid var(--p-border); font-size: 1rem; transition: transform 0.15s; }
 .nd-socials a:hover { transform: translateY(-2px); }
+/* ---------- En-tête portrait (visage détouré qui chevauche la zone 2) ---------- */
+.nd-profile[data-header="portrait"] .nd-header { padding-top: 30px; }
+.nd-portrait { display: flex; justify-content: center; margin: 10px 0 -58px; z-index: 2; }
+.nd-portrait-img { width: 190px; height: 230px; object-fit: contain; object-position: bottom center; filter: drop-shadow(0 12px 26px rgb(0 0 0 / .3)); }
+.nd-portrait-fallback { object-fit: cover; border-radius: 48% 48% 40% 40%; }
+.nd-portrait-init { display: grid; place-items: center; background: linear-gradient(180deg, var(--p-accent), var(--p-accent-2)); color: var(--p-on-accent); font: 800 4rem var(--p-font-display), sans-serif; border-radius: 48% 48% 40% 40%; }
+.nd-profile[data-header="portrait"] .nd-zone-main { padding-top: 64px; }
+/* ---------- Ornements (decor) ---------- */
+.nd-profile[data-decor="halo"] .nd-header::after { content: ""; position: absolute; top: -30px; left: 50%; transform: translateX(-50%); width: 280px; height: 280px; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--p-accent) 32%, transparent) 0%, transparent 68%); pointer-events: none; z-index: 0; }
+.nd-profile[data-decor="leaves"] .nd-header::after { content: ""; position: absolute; top: 0; right: 0; width: 150px; height: 150px; background: radial-gradient(ellipse at 30% 30%, color-mix(in srgb, var(--p-accent) 26%, transparent), transparent 70%); border-radius: 0 100% 0 100%; pointer-events: none; z-index: 0; }
+.nd-profile[data-decor="leaves"] .nd-header::before { content: ""; position: absolute; bottom: 0; left: 0; width: 130px; height: 130px; background: radial-gradient(ellipse at 70% 70%, color-mix(in srgb, var(--p-accent-2) 22%, transparent), transparent 70%); border-radius: 100% 0 100% 0; pointer-events: none; z-index: 0; }
+.nd-profile[data-decor="curves"] .nd-header::after { content: ""; position: absolute; left: -12%; right: -12%; bottom: -26px; height: 52px; border-radius: 100% 100% 0 0; background: color-mix(in srgb, var(--p-accent) 16%, transparent); pointer-events: none; z-index: 0; }
 /* ---------- Composition deux zones (thèmes Pro & Business uniquement) ---------- */
 /* Thèmes gratuits : la zone est transparente (display: contents) → rendu strictement identique à la galerie. */
 .nd-zone-main { display: contents; }
@@ -8945,6 +8892,9 @@ export { BadgeCheck, ChevronDown, ChevronRight };
 .nd-profile[data-parts="two"] .nd-zone-main::before { content: ""; position: absolute; top: 0; left: 8%; right: 8%; height: 1px; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--p-accent) 55%, transparent), transparent); }
 .nd-profile[data-parts="two"] .nd-header { padding-bottom: 6px; }
 .nd-profile[data-parts="two"] .nd-socials { margin-top: 18px; }
+/* ---------- Rangée réseaux compacte (option popularSocials : 6 majeurs d'abord) ---------- */
+.nd-profile[data-socials="popular"] .nd-socials { margin-top: 18px; gap: 8px; }
+.nd-profile[data-socials="popular"] .nd-socials a { width: 36px; height: 36px; font-size: 0.85rem; }
 /* ---------- Liens ---------- */
 .nd-links { width: 100%; display: flex; flex-direction: column; gap: 12px; }
 .nd-profile[data-layout="grid"] .nd-links { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
@@ -8971,6 +8921,18 @@ export { BadgeCheck, ChevronDown, ChevronRight };
 .nd-banner-media { display: grid; place-items: center; background: linear-gradient(135deg, var(--p-accent), var(--p-accent-2)) center / cover no-repeat; color: var(--p-on-accent); }
 .nd-banner-body { display: flex; flex-direction: column; justify-content: center; align-items: flex-start; padding: 14px; }
 .nd-cta { margin-top: 10px; padding: 6px 14px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; background: var(--p-accent); color: var(--p-on-accent); }
+/* ---------- Images détourées (popout / contain) ---------- */
+.nd-media-contain { background-size: contain; background-repeat: no-repeat; background-position: center; }
+.nd-banner-popout { overflow: visible; margin-top: 36px; }
+.nd-banner-popout .nd-banner-media { overflow: visible; position: relative; }
+.nd-media-popout { background: linear-gradient(135deg, var(--p-accent), var(--p-accent-2)); }
+.nd-popout { position: absolute; bottom: -4px; left: 50%; transform: translateX(-50%); height: 134%; width: auto; max-width: 180%; object-fit: contain; object-position: bottom center; pointer-events: none; filter: drop-shadow(0 8px 16px rgb(0 0 0 / .3)); z-index: 2; }
+.nd-link-popout { overflow: visible; margin-top: 32px; }
+.nd-popout-card { position: absolute; bottom: -4px; height: 130%; width: auto; max-width: 46%; object-fit: contain; object-position: bottom center; pointer-events: none; filter: drop-shadow(0 8px 14px rgb(0 0 0 / .28)); z-index: 2; }
+.nd-popout-card.right { right: 4px; }
+.nd-popout-card.left { left: 4px; }
+.nd-link-popout.pad-right { padding-right: 76px; }
+.nd-link-popout.pad-left { padding-left: 76px; }
 /* ---------- Styles de boutons ---------- */
 .nd-profile[data-btn="solid"] :is(.nd-link, .nd-banner) { background: var(--p-accent); color: var(--p-on-accent); }
 .nd-profile[data-btn="outline"] :is(.nd-link, .nd-banner) { background: transparent; border: 1.5px solid var(--p-text); }
@@ -9242,38 +9204,6 @@ export { BadgeCheck, ChevronDown, ChevronRight };
 }
 @media (prefers-reduced-motion: reduce) {
   .nd-profile[data-theme="champagne-atelier"] .nd-link { transition: none; }
-}
-===== FILE: src/components/sections/page.tsx =====
-
-import type { Metadata } from "next";
-import { redirect } from "next/navigation";
-import { SectionsEditor } from "@/components/dashboard/BlocksEditor";
-import { toProfile } from "@/lib/profile-mapper";
-import { createClient } from "@/lib/supabase/server";
-
-export const dynamic = "force-dynamic";
-
-export const metadata: Metadata = { title: "Sections de ma page" };
-
-export default async function SectionsPage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/auth");
-
-  const { data: row } = await supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle();
-  if (!row) {
-    return <main className="mx-auto max-w-xl px-6 py-24 text-center text-muted">Crée d&apos;abord ta page.</main>;
-  }
-
-  const { profile } = toProfile({ profile: row, plan: "free", links: [] });
-
-  return (
-    <SectionsEditor
-      profileId={row.id}
-      initialBlocks={profile.blocks ?? []}
-      initialSocials={profile.socials}
-    />
-  );
 }
 ===== FILE: src/components/ui/Badge.tsx =====
 
@@ -9653,31 +9583,6 @@ export function PageHeader({
   );
 }
 
-===== FILE: src/components/ui/Shell.tsx =====
-
-import type { ReactNode } from "react";
-
-type Props = {
-  title: string;
-  description?: string;
-  actions?: ReactNode;
-  children: ReactNode;
-};
-
-export function Shell({ title, description, actions, children }: Props) {
-  return (
-    <div className="p-4 sm:p-6">
-      <header className="mb-6 flex items-start justify-between gap-4">
-        <div className="flex-1 min-w-0">
-          <h1 className="font-display text-2xl font-bold text-ink sm:text-3xl">{title}</h1>
-          {description && <p className="mt-1 text-sm text-muted">{description}</p>}
-        </div>
-        {actions && <div className="flex items-center gap-2">{actions}</div>}
-      </header>
-      {children}
-    </div>
-  );
-}
 ===== FILE: src/lib/admin-types.ts =====
 
 export type AdminRow = {
@@ -9974,6 +9879,8 @@ export type DbProfile = {
   bio: string | null;
   avatar_url: string | null;
   cover_url: string | null;
+  hero_url: string | null;
+  country: string | null;
   theme_id: string;
   created_at?: string;
   [key: string]: unknown;
@@ -9991,6 +9898,7 @@ export type DbLink = {
   position: number;
   subtitle?: string | null;
   image_url?: string | null;
+  image_mode?: "cover" | "popout" | "contain" | null;
   cta?: string | null;
   featured?: boolean | null;
 };
@@ -10001,7 +9909,6 @@ export const PLAN_LABEL: Record<Plan, string> = { free: "Gratuit", pro: "Pro", b
 
 /** Cookie qui mémorise le profil sélectionné (lu aussi côté serveur par /dashboard/themes et /sections). */
 export const PROFILE_COOKIE = "nd_profile";
-
 ===== FILE: src/lib/detect-icon.ts =====
 
 /** Détection ordonnée : premier match gagnant. */
@@ -10183,6 +10090,11 @@ export const OG_TYPE = "image/png";
 
 const BRAND = { or: "#F9A825", ocre: "#FF6A1A", terra: "#C1440E", creme: "#FFF9F3" };
 
+/** Domaine canonique affiché sur les images de partage (jamais codé en dur). */
+const SITE_HOST = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://ndeletik.com")
+  .replace(/^https?:\/\//, "")
+  .replace(/\/$/, "");
+
 /** Image de partage de la landing (Open Graph / Twitter). */
 export function landingOg() {
   const pills = ["Ma boutique", "Commandes WhatsApp", "Ma chaîne YouTube"];
@@ -10206,10 +10118,9 @@ export function landingOg() {
             Ta bio, tes liens, tes ventes.
           </div>
           <div style={{ display: "flex", fontSize: 30, marginTop: 28, opacity: 0.92 }}>
-            La page de liens des créateurs africains. Mobile Money, 18 thèmes, statistiques.
+            La page de liens des créateurs africains. Mobile Money, 20 thèmes, statistiques.
           </div>
         </div>
-
         <div
           style={{
             display: "flex",
@@ -10344,14 +10255,471 @@ export function profileOg({ name, slug, headline, avatar, tokens: t }: ProfileOg
             fontSize: 30,
           }}
         >
-          ndeletik.vercel.app/@{slug}
+          {SITE_HOST}/@{slug}
         </div>
       </div>
     ),
     { ...OG_SIZE }
   );
 }
+===== FILE: src/lib/payments/index.ts =====
 
+// src/lib/payments/index.ts
+// Export public du module payments — un seul import pour toute l'app.
+export {
+  getProvider,
+  priceFor,
+  normalizePhone,
+  detectOperator,
+  PRICING,
+} from "./provider";
+
+export type {
+  PaymentProvider,
+} from "./provider";
+
+export type {
+  PaymentIntent,
+  PaymentStatus,
+  MobileMoneyOperator,
+  Amount,
+  Currency,
+  InitiateResult,
+  VerifyResult,
+  SebPayWebhookPayload,
+} from "./types";
+===== FILE: src/lib/payments/provider.ts =====
+
+// src/lib/payments/provider.ts
+import type {
+  Amount,
+  InitiateResult,
+  MobileMoneyOperator,
+  PaymentIntent,
+  Plan,
+  VerifyResult,
+} from "./types";
+import { SebPayProvider } from "./sebpay";
+import type { Plan as AppPlan } from "@/lib/plans";
+
+// Réexport pour éviter un import circulaire
+export type { Plan } from "./types";
+
+/**
+ * Contrat unique que tout prestataire de paiement doit respecter.
+ * Ajouter CinetPay, Flutterwave, Stripe ? Il suffit d'implémenter cette interface.
+ */
+export interface PaymentProvider {
+  readonly name: "sebpay" | "cinetpay" | "flutterwave" | "stripe";
+
+  /**
+   * Initie un paiement Mobile Money.
+   * - Crée l'intent en base (status = pending)
+   * - Appelle l'API du prestataire (USSD push)
+   * - Retourne l'ID intent et la référence prestataire
+   */
+  initiate(params: {
+    userId: string;
+    phoneNumber: string;
+    operator: MobileMoneyOperator;
+    plan: AppPlan;
+    period: "monthly" | "yearly";
+    amount: Amount;
+    metadata?: Record<string, unknown>;
+  }): Promise<InitiateResult>;
+
+  /**
+   * Vérifie et traite un webhook reçu.
+   * - Valide la signature
+   * - Met à jour l'intent en base
+   * - Déclenche la mise à niveau du plan (via trigger SQL)
+   */
+  verifyWebhook(body: unknown, headers: Headers): Promise<VerifyResult>;
+
+  /**
+   * Interroge le statut d'une transaction (pour le polling côté client
+   * pendant que l'utilisateur valide sur son téléphone).
+   */
+  getStatus(providerRef: string): Promise<PaymentIntent["status"]>;
+}
+
+/** Tarifs officiels en FCFA — à synchroniser avec `supabase/schema.sql` et `Pricing.tsx`. */
+export const PRICING: Record<AppPlan, { monthly: Amount; yearly: Amount }> = {
+  free: { monthly: 0, yearly: 0 },
+  pro: { monthly: 3_000, yearly: Math.round(3_000 * 12 * 0.8) }, // 28 800 FCFA/an (-20%)
+  business: { monthly: 9_000, yearly: Math.round(9_000 * 12 * 0.8) }, // 86 400 FCFA/an (-20%)
+};
+
+/** Retourne le montant à facturer pour un plan et une période. */
+export function priceFor(plan: AppPlan, period: "monthly" | "yearly"): Amount {
+  return PRICING[plan][period];
+}
+
+/**
+ * Factory : retourne l'implémentation active.
+ * Une seule ligne à changer pour basculer de prestataire.
+ */
+export function getProvider(): PaymentProvider {
+  const chosen = (process.env.PAYMENT_PROVIDER ?? "sebpay") as
+    | "sebpay"
+    | "cinetpay"
+    | "flutterwave"
+    | "stripe";
+
+  switch (chosen) {
+    case "sebpay":
+      return new SebPayProvider();
+    // case "cinetpay": return new CinetPayProvider();
+    // case "flutterwave": return new FlutterwaveProvider();
+    // case "stripe": return new StripeProvider();
+    default:
+      throw new Error(`Prestataire de paiement inconnu : ${chosen}`);
+  }
+}
+
+/**
+ * Normalise un numéro de téléphone saisi par le créateur.
+ * Accepte : "06 123 4567", "+242 06 123 45 67", "242061234567"…
+ * Retourne le format E.164 international (+242061234567).
+ */
+export function normalizePhone(raw: string, defaultCountry = "242"): string {
+  const digits = raw.replace(/[^\d+]/g, "");
+  if (digits.startsWith("+")) return digits;
+  if (digits.startsWith("00")) return "+" + digits.slice(2);
+  if (digits.length >= 9 && digits.startsWith(defaultCountry)) return "+" + digits;
+  if (digits.startsWith("0")) return "+" + defaultCountry + digits.slice(1);
+  return "+" + defaultCountry + digits;
+}
+
+/**
+ * Détecte l'opérateur à partir d'un numéro (préfixes Congo +扩展).
+ * Retourne null si inconnu — l'utilisateur devra choisir manuellement.
+ */
+export function detectOperator(phone: string): MobileMoneyOperator | null {
+  const digits = phone.replace(/[^\d]/g, "");
+  // Congo Brazzaville (+242)
+  if (digits.startsWith("24206") || digits.startsWith("24205")) return "Airtel";
+  if (digits.startsWith("24204") || digits.startsWith("24201")) return "MTN";
+  // Cameroun (+237)
+  if (digits.startsWith("23767") || digits.startsWith("23768")) return "MTN";
+  if (digits.startsWith("23769") || digits.startsWith("23765")) return "Orange";
+  // Sénégal / Côte d'Ivoire (Wave)
+  if (digits.startsWith("22177") || digits.startsWith("22178") || digits.startsWith("22507")) return "Wave";
+  return null;
+}
+===== FILE: src/lib/payments/sebpay.ts =====
+
+// src/lib/payments/sebpay.ts
+import crypto from "crypto";
+import { createAdminClient } from "@/lib/supabase/admin";
+import type {
+  InitiateResult,
+  MobileMoneyOperator,
+  PaymentIntent,
+  PaymentStatus,
+  SebPayWebhookPayload,
+  VerifyResult,
+} from "./types";
+import type { Plan } from "@/lib/plans";
+import { normalizePhone, priceFor, type PaymentProvider } from "./provider";
+
+/**
+ * Implémentation SebPay — Mobile Money Afrique centrale.
+ * Docs : https://docs.sebpay.com (à vérifier lors de l'intégration réelle)
+ */
+export class SebPayProvider implements PaymentProvider {
+  readonly name = "sebpay";
+
+  private get baseUrl(): string {
+    return process.env.SEBray_SANDBOX === "true"
+      ? "https://sandbox.sebpay.com/api/v1"
+      : "https://api.sebpay.com/api/v1";
+  }
+
+  private get apiKey(): string {
+    const key = process.env.SEBPAY_API_KEY;
+    if (!key) throw new Error("SEBPAY_API_KEY manquant dans .env");
+    return key;
+  }
+
+  private get webhookSecret(): string {
+    const secret = process.env.SEBPAY_WEBHOOK_SECRET;
+    if (!secret) throw new Error("SEBPAY_WEBHOOK_SECRET manquant dans .env");
+    return secret;
+  }
+
+  /** URL publique du webhook (Vercel). */
+  private get webhookUrl(): string {
+    const base = process.env.NEXT_PUBLIC_SITE_URL ?? "https://ndeletik.com";
+    return `${base}/api/payments/webhook`;
+  }
+
+  async initiate(params: {
+    userId: string;
+    phoneNumber: string;
+    operator: MobileMoneyOperator;
+    plan: Plan;
+    period: "monthly" | "yearly";
+    amount: number;
+    metadata?: Record<string, unknown>;
+  }): Promise<InitiateResult> {
+    const admin = createAdminClient();
+    const phone = normalizePhone(params.phoneNumber);
+
+    // 1) Créer l'intent en base (status = pending)
+    const { data: intent, error: insertError } = await admin
+      .from("payments")
+      .insert({
+        user_id: params.userId,
+        provider: "sebpay",
+        provider_ref: null, // rempli après réponse API
+        phone_number: phone,
+        operator: params.operator,
+        plan: params.plan,
+        period: params.period,
+        amount: params.amount,
+        currency: "XAF",
+        status: "pending",
+        webhook_url: this.webhookUrl,
+        metadata: params.metadata ?? {},
+      })
+      .select("id")
+      .single();
+
+    if (insertError || !intent) {
+      return { ok: false, error: "Impossible de créer la transaction" };
+    }
+
+    // 2) Appeler l'API SebPay (initiate mobile push)
+    try {
+      const res = await fetch(`${this.baseUrl}/transactions/initiate`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.apiKey}`,
+        },
+        body: JSON.stringify({
+          reference: intent.id,
+          amount: params.amount,
+          currency: "XAF",
+          phone_number: phone,
+          operator: params.operator.toLowerCase(),
+          description: `Abonnement Ndeletik ${params.plan} (${params.period})`,
+          notify_url: this.webhookUrl,
+          metadata: { userId: params.userId, plan: params.plan },
+        }),
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        await this.failIntent(intent.id, `SebPay HTTP ${res.status}: ${text}`);
+        return { ok: false, error: "Le prestataire a refusé la transaction" };
+      }
+
+      const data = await res.json();
+      const providerRef = data.transaction_id ?? data.id;
+
+      // 3) Mettre à jour avec la référence SebPay
+      await admin
+        .from("payments")
+        .update({ provider_ref: providerRef, status: "processing" })
+        .eq("id", intent.id);
+
+      return {
+        ok: true,
+        intentId: intent.id,
+        providerRef,
+        userMessage: `Valide le paiement de ${params.amount.toLocaleString("fr-FR")} FCFA sur ton téléphone ${params.operator}.`,
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Erreur réseau";
+      await this.failIntent(intent.id, msg);
+      return { ok: false, error: "Connexion au prestataire impossible" };
+    }
+  }
+
+  async verifyWebhook(body: unknown, headers: Headers): Promise<VerifyResult> {
+    // 1) Vérifier la signature HMAC
+    const signature = headers.get("x-sebpay-signature") ?? "";
+    const rawBody = typeof body === "string" ? body : JSON.stringify(body);
+    const expected = crypto
+      .createHmac("sha256", this.webhookSecret)
+      .update(rawBody)
+      .digest("hex");
+
+    if (!signature || signature !== expected) {
+      return { ok: false, error: "Signature invalide" };
+    }
+
+    const payload = body as SebPayWebhookPayload;
+    if (!payload.reference || !payload.status) {
+      return { ok: false, error: "Payload incomplet" };
+    }
+
+    // 2) Mapper le statut SebPay vers notre statut canonique
+    const statusMap: Record<string, PaymentStatus> = {
+      success: "succeeded",
+      failed: "failed",
+      pending: "processing",
+      expired: "expired",
+    };
+    const newStatus = statusMap[payload.status];
+    if (!newStatus) {
+      return { ok: false, error: `Statut SebPay inconnu: ${payload.status}` };
+    }
+
+    // 3) Mettre à jour l'intent
+    const admin = createAdminClient();
+    const { data: intent } = await admin
+      .from("payments")
+      .update({
+        status: newStatus,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", payload.reference)
+      .select("id, user_id, plan, period")
+      .single();
+
+    if (!intent) return { ok: false, error: "Intent introuvable" };
+
+    // 4) Si succès → déclencher l'activation du plan
+    // Le trigger SQL `on_payment_succeeded` met à jour `accounts.plan` et `accounts.plan_expires_at`
+    // → aucune logique ici, la base fait le travail.
+    if (newStatus === "succeeded") {
+      // On pourrait aussi appeler une RPC `activate_plan(user_id, plan, period)`
+      // mais un trigger SQL est plus atomique et audit-friendly.
+    }
+
+    return { ok: true, intentId: intent.id, status: newStatus };
+  }
+
+  async getStatus(providerRef: string): Promise<PaymentStatus> {
+    try {
+      const res = await fetch(`${this.baseUrl}/transactions/${providerRef}`, {
+        headers: { Authorization: `Bearer ${this.apiKey}` },
+      });
+      if (!res.ok) return "pending";
+      const data = await res.json();
+      const map: Record<string, PaymentStatus> = {
+        success: "succeeded",
+        failed: "failed",
+        pending: "processing",
+        expired: "expired",
+      };
+      return map[data.status] ?? "pending";
+    } catch {
+      return "pending";
+    }
+  }
+
+  private async failIntent(intentId: string, error: string): Promise<void> {
+    try {
+      const admin = createAdminClient();
+      await admin
+        .from("payments")
+        .update({
+          status: "failed",
+          error_message: error.slice(0, 500),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", intentId);
+    } catch {
+      // silencieux — la création a déjà échoué
+    }
+  }
+}
+===== FILE: src/lib/payments/types.ts =====
+
+// src/lib/payments/types.ts
+import type { Plan } from "@/lib/plans";
+
+/** Devise supportée (XAF = FCFA, devise de l'Afrique centrale). */
+export type Currency = "XAF";
+
+/** Montant entier (FCFA n'a pas de centimes). */
+export type Amount = number;
+
+/** Statut canonique — identique quel que soit le prestataire. */
+export type PaymentStatus =
+  | "pending"      // Créé, en attente de confirmation client
+  | "processing"   // USSD push envoyé, client en train de valider
+  | "succeeded"    // Paiement confirmé par le prestataire
+  | "failed"       // Échec (solde insuffisant, code incorrect…)
+  | "expired"      // Pas confirmé dans la fenêtre (5 min)
+  | "refunded";    // Remboursé (manuel ou auto)
+
+/** Moyen de paiement Mobile Money. */
+export type MobileMoneyOperator = "MTN" | "Airtel" | "Wave" | "Orange" | "Moov";
+
+/** Intent créé par notre app AVANT l'appel au prestataire. */
+export interface PaymentIntent {
+  /** ID unique interne (UUID). */
+  id: string;
+  /** Référence externe (SebPay transaction_id, etc.). */
+  providerRef?: string;
+  /** Prestataire utilisé. */
+  provider: "sebpay" | "cinetpay" | "flutterwave" | "stripe";
+  /** User qui paie. */
+  userId: string;
+  /** Numéro MSISDN du client (format international +242…). */
+  phoneNumber: string;
+  /** Opérateur détecté ou choisi. */
+  operator: MobileMoneyOperator;
+  /** Plan souscrit. */
+  plan: Plan;
+  /** Période (mensuel/annuel). */
+  period: "monthly" | "yearly";
+  /** Montant en FCFA (entier). */
+  amount: Amount;
+  /** Devise. */
+  currency: Currency;
+  /** Statut canonique. */
+  status: PaymentStatus;
+  /** Date de création. */
+  createdAt: string;
+  /** Date de dernière mise à jour. */
+  updatedAt: string;
+  /** URL du webhook pour recevoir la notification (Sebpay notify_url). */
+  webhookUrl: string;
+  /** Erreur éventuelle, texte lisible. */
+  errorMessage?: string;
+  /** Métadonnées libres (ex: { reason: "upgrade", previousPlan: "free" }). */
+  metadata?: Record<string, unknown>;
+}
+
+/** Payload reçu du webhook SebPay (format réel documenté). */
+export interface SebPayWebhookPayload {
+  transaction_id: string;
+  reference: string;
+  status: "success" | "failed" | "pending";
+  amount: number;
+  currency: string;
+  phone_number: string;
+  operator: string;
+  paid_at?: string;
+  fee?: number;
+  net_amount?: number;
+  signature: string;
+  [key: string]: unknown;
+}
+
+/** Résultat d'une initiation de paiement. */
+export interface InitiateResult {
+  ok: boolean;
+  intentId?: string;
+  providerRef?: string;
+  /** Message à afficher au créateur (« Valide sur ton téléphone MTN »). */
+  userMessage?: string;
+  error?: string;
+}
+
+/** Résultat de vérification d'un webhook. */
+export interface VerifyResult {
+  ok: boolean;
+  intentId?: string;
+  status?: PaymentStatus;
+  error?: string;
+}
 ===== FILE: src/lib/plans.ts =====
 
 export type Plan = "free" | "pro" | "business";
@@ -10366,7 +10734,7 @@ export function planAtLeast(current: Plan, required: Plan): boolean {
 import { sanitizeCustomTokens } from "./entitlements";
 import type { Plan } from "./plans";
 import { safeImageUrl, safeUrl } from "./safe-url";
-import type { Block, LinkItem, Profile, Social, SocialType } from "./themes/types";
+import type { Block, ImageMode, LinkItem, Profile, Social, SocialType } from "./themes/types";
 
 const SOCIALS: SocialType[] = [
   "instagram", "tiktok", "youtube", "facebook", "whatsapp",
@@ -10377,6 +10745,9 @@ const str = (v: unknown, max = 500) => (typeof v === "string" ? v.slice(0, max) 
 const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
 const iconKey = (v: unknown) => (typeof v === "string" && /^[a-z]{2,20}$/.test(v) ? v : undefined);
 const emoji = (v: unknown) => (typeof v === "string" ? v.slice(0, 16) : undefined);
+/** Seul popout/contain est stocké explicitement ; cover est le défaut. */
+const imageMode = (v: unknown): ImageMode | undefined =>
+  v === "popout" || v === "contain" ? v : undefined;
 
 function toBlocks(raw: unknown): Block[] {
   const out: Block[] = [];
@@ -10447,6 +10818,7 @@ export function toProfile(payload: any): { profile: Profile; plan: Plan } {
     url: str(l.url, 2048),
     icon: l.icon ?? undefined,
     image: safeImageUrl(l.image_url),
+    imageMode: imageMode(l.image_mode),
     cta: str(l.cta, 24) || undefined,
     featured: !!l.featured,
     enabled: l.enabled !== false,
@@ -10460,6 +10832,7 @@ export function toProfile(payload: any): { profile: Profile; plan: Plan } {
       bio: str(p.bio, 400) || undefined,
       avatarUrl: safeImageUrl(p.avatar_url),
       coverUrl: safeImageUrl(p.cover_url),
+      heroUrl: safeImageUrl(p.hero_url),
       verified: !!p.verified,
       showBadge: p.show_badge !== false,
       themeId: p.theme_id,
@@ -10569,14 +10942,14 @@ export const supabase = createBrowserClient(
 import type { Theme } from "./types";
 
 export const BUSINESS_THEMES: Theme[] = [
-  { id: "barbier", name: "Barbier", plan: "business", layout: "banners", buttonStyle: "soft", header: "cover", avatarShape: "rounded", dark: true, uppercaseLinks: true, tracking: "0.08em", fonts: ["Playfair+Display:wght@500;600;700", "Montserrat:wght@400;500;600;700"], tokens: { bg: "radial-gradient(circle at 50% 0%,#3A2A12 0%,#0D0B08 45%,#050403 100%)", surface: "#14110D", text: "#F4E9D6", muted: "#B9A88A", accent: "#D9A850", accent2: "#8A5E1F", onAccent: "#1A1204", border: "#C79A55", radius: "16px", shadow: "none", headerBg: "linear-gradient(180deg,#4A3414,#0D0B08)", fontDisplay: "Playfair Display", fontBody: "Montserrat" } },
+  { id: "barbier", name: "Barbier", plan: "business", layout: "banners", buttonStyle: "soft", header: "cover", avatarShape: "rounded", dark: true, uppercaseLinks: true, tracking: "0.08em", popularSocials: true, fonts: ["Playfair+Display:wght@500;600;700", "Montserrat:wght@400;500;600;700"], tokens: { bg: "radial-gradient(circle at 50% 0%,#3A2A12 0%,#0D0B08 45%,#050403 100%)", surface: "#14110D", text: "#F4E9D6", muted: "#B9A88A", accent: "#D9A850", accent2: "#8A5E1F", onAccent: "#1A1204", border: "#C79A55", radius: "16px", shadow: "none", headerBg: "linear-gradient(180deg,#4A3414,#0D0B08)", fontDisplay: "Playfair Display", fontBody: "Montserrat" } },
   { id: "infoproductrice", name: "Infoproductrice", plan: "business", layout: "banners", buttonStyle: "gradient", header: "center", avatarShape: "circle", dark: false, fonts: ["Cormorant+Garamond:wght@500;600;700", "Poppins:wght@400;500;600"], tokens: { bg: "#FFFFFF", surface: "#F7F3EC", text: "#2B2B2B", muted: "#7A6F5F", accent: "#B79C6B", accent2: "#9E8156", onAccent: "#FFFFFF", border: "#E9E1D2", radius: "8px", shadow: "none", headerBg: "#F7F3EC", fontDisplay: "Cormorant Garamond", fontBody: "Poppins" } },
-  { id: "or-premium", name: "Or premium", plan: "business", layout: "banners", buttonStyle: "glass", header: "center", avatarShape: "circle", dark: false, fonts: ["Playfair+Display:wght@400;500;600;700", "Poppins:wght@400;500;600"], tokens: { bg: "linear-gradient(180deg,#FFFFFF 0%,#F6EFE2 30%,#E3CB9A 65%,#B98B4E 100%)", surface: "#F3E3BF", text: "#4A3216", muted: "#7A5A2E", accent: "#B98B2E", accent2: "#8E5F2C", onAccent: "#FFFFFF", border: "rgba(255,255,255,0.75)", radius: "18px", shadow: "0 10px 28px -12px rgba(110,70,15,.5)", headerBg: "#F6EFE2", fontDisplay: "Playfair Display", fontBody: "Poppins" } },
-  { id: "or-rose", name: "Or rosé", plan: "business", layout: "banners", buttonStyle: "gradient", header: "cover", avatarShape: "circle", dark: true, fonts: ["Cormorant+Garamond:wght@500;600;700", "Montserrat:wght@400;500;600;700"], tokens: { bg: "#0B0B0B", surface: "#1A1412", text: "#F5E6DD", muted: "#BFA79A", accent: "#E8B9A0", accent2: "#C98E72", onAccent: "#1B1210", border: "#3A2B25", radius: "20px", shadow: "none", headerBg: "linear-gradient(180deg,#3A2B25,#0B0B0B)", fontDisplay: "Cormorant Garamond", fontBody: "Montserrat" } },
-  { id: "noir-or", name: "Noir & or", plan: "business", layout: "banners", buttonStyle: "soft", header: "cover", avatarShape: "circle", dark: true, uppercaseLinks: true, tracking: "0.06em", fonts: ["Montserrat:wght@500;600;700;800", "Poppins:wght@400;500;600"], tokens: { bg: "radial-gradient(circle at 85% 20%,rgba(227,177,63,.25),transparent 40%),#050505", surface: "#15120C", text: "#FFFFFF", muted: "#C9C2B5", accent: "#E3B13F", accent2: "#B8860B", onAccent: "#1A1200", border: "#3A2E14", radius: "10px", shadow: "none", headerBg: "linear-gradient(180deg,#3A2E14,#050505)", fontDisplay: "Montserrat", fontBody: "Poppins" } },
-  { id: "immobilier", name: "Immobilier", plan: "business", layout: "banners", buttonStyle: "gradient", header: "center", avatarShape: "circle", dark: false, fonts: ["Montserrat:wght@500;600;700;800", "Poppins:wght@400;500;600"], tokens: { bg: "#E9EAEE", surface: "#FFFFFF", text: "#1B2433", muted: "#5D6677", accent: "#1F6FD0", accent2: "#174F9C", onAccent: "#FFFFFF", border: "#D9DCE3", radius: "20px", shadow: "0 8px 20px -10px rgba(23,79,156,.45)", headerBg: "#DDE3EE", fontDisplay: "Montserrat", fontBody: "Poppins" } },
-  { id: "avocate", name: "Avocate", plan: "business", layout: "cards", buttonStyle: "soft", header: "cover", avatarShape: "circle", dark: false, fonts: ["Playfair+Display:wght@500;600;700", "Inter:wght@400;500;600;700"], tokens: { bg: "#F6F0EA", surface: "#FFFFFF", text: "#1B2A4E", muted: "#5C6784", accent: "#1B2A4E", accent2: "#2C3F6E", onAccent: "#FFFFFF", border: "#E8E2DA", radius: "18px", shadow: "none", headerBg: "linear-gradient(180deg,#E9DDD0,#F6F0EA)", fontDisplay: "Playfair Display", fontBody: "Inter" } },
-  { id: "champagne-atelier", name: "Champagne Atelier", plan: "business", layout: "cards", buttonStyle: "neu", header: "cover", avatarShape: "circle", dark: false, fonts: ["Cormorant+Garamond:wght@400;500;600;700", "Montserrat:wght@400;500;600"], tokens: { bg: "linear-gradient(180deg,#F7F0E9 0%,#F2E7DE 100%)", surface: "#FBF7F3", text: "#604B2C", muted: "#8A7558", accent: "#8C7049", accent2: "#B29A78", onAccent: "#FFFFFF", border: "#E5D9CE", radius: "28px", shadow: "0 8px 18px -10px rgba(88,65,38,.32), 0 2px 5px rgba(80,60,35,.10)", headerBg: "#F6EDE4", fontDisplay: "Cormorant Garamond", fontBody: "Montserrat" } },
+  { id: "or-premium", name: "Or premium", plan: "business", layout: "banners", buttonStyle: "glass", header: "portrait", avatarShape: "circle", dark: false, decor: "curves", fonts: ["Playfair+Display:wght@400;500;600;700", "Poppins:wght@400;500;600"], tokens: { bg: "linear-gradient(180deg,#FFFFFF 0%,#F6EFE2 30%,#E3CB9A 65%,#B98B4E 100%)", surface: "#F3E3BF", text: "#4A3216", muted: "#7A5A2E", accent: "#B98B2E", accent2: "#8E5F2C", onAccent: "#FFFFFF", border: "rgba(255,255,255,0.75)", radius: "18px", shadow: "0 10px 28px -12px rgba(110,70,15,.5)", headerBg: "#F6EFE2", fontDisplay: "Playfair Display", fontBody: "Poppins" } },
+  { id: "or-rose", name: "Or rosé", plan: "business", layout: "banners", buttonStyle: "gradient", header: "cover", avatarShape: "circle", dark: true, decor: "leaves", popoutSide: "alternate", fonts: ["Cormorant+Garamond:wght@500;600;700", "Montserrat:wght@400;500;600;700"], tokens: { bg: "#0B0B0B", surface: "#1A1412", text: "#F5E6DD", muted: "#BFA79A", accent: "#E8B9A0", accent2: "#C98E72", onAccent: "#1B1210", border: "#3A2B25", radius: "20px", shadow: "none", headerBg: "linear-gradient(180deg,#3A2B25,#0B0B0B)", fontDisplay: "Cormorant Garamond", fontBody: "Montserrat" } },
+  { id: "noir-or", name: "Noir & or", plan: "business", layout: "banners", buttonStyle: "soft", header: "cover", avatarShape: "circle", dark: true, uppercaseLinks: true, tracking: "0.06em", decor: "halo", popoutSide: "right", fonts: ["Montserrat:wght@500;600;700;800", "Poppins:wght@400;500;600"], tokens: { bg: "radial-gradient(circle at 85% 20%,rgba(227,177,63,.25),transparent 40%),#050505", surface: "#15120C", text: "#FFFFFF", muted: "#C9C2B5", accent: "#E3B13F", accent2: "#B8860B", onAccent: "#1A1200", border: "#3A2E14", radius: "10px", shadow: "none", headerBg: "linear-gradient(180deg,#3A2E14,#050505)", fontDisplay: "Montserrat", fontBody: "Poppins" } },
+  { id: "immobilier", name: "Immobilier", plan: "business", layout: "banners", buttonStyle: "gradient", header: "center", avatarShape: "circle", dark: false, popoutSide: "alternate", fonts: ["Montserrat:wght@500;600;700;800", "Poppins:wght@400;500;600"], tokens: { bg: "#E9EAEE", surface: "#FFFFFF", text: "#1B2433", muted: "#5D6677", accent: "#1F6FD0", accent2: "#174F9C", onAccent: "#FFFFFF", border: "#D9DCE3", radius: "20px", shadow: "0 8px 20px -10px rgba(23,79,156,.45)", headerBg: "#DDE3EE", fontDisplay: "Montserrat", fontBody: "Poppins" } },
+  { id: "avocate", name: "Avocate", plan: "business", layout: "cards", buttonStyle: "soft", header: "cover", avatarShape: "circle", dark: false, popularSocials: true, fonts: ["Playfair+Display:wght@500;600;700", "Inter:wght@400;500;600;700"], tokens: { bg: "#F6F0EA", surface: "#FFFFFF", text: "#1B2A4E", muted: "#5C6784", accent: "#1B2A4E", accent2: "#2C3F6E", onAccent: "#FFFFFF", border: "#E8E2DA", radius: "18px", shadow: "none", headerBg: "linear-gradient(180deg,#E9DDD0,#F6F0EA)", fontDisplay: "Playfair Display", fontBody: "Inter" } },
+  { id: "champagne-atelier", name: "Champagne Atelier", plan: "business", layout: "cards", buttonStyle: "neu", header: "cover", avatarShape: "circle", dark: false, popularSocials: true, fonts: ["Cormorant+Garamond:wght@400;500;600;700", "Montserrat:wght@400;500;600"], tokens: { bg: "linear-gradient(180deg,#F7F0E9 0%,#F2E7DE 100%)", surface: "#FBF7F3", text: "#604B2C", muted: "#8A7558", accent: "#8C7049", accent2: "#B29A78", onAccent: "#FFFFFF", border: "#E5D9CE", radius: "28px", shadow: "0 8px 18px -10px rgba(88,65,38,.32), 0 2px 5px rgba(80,60,35,.10)", headerBg: "#F6EDE4", fontDisplay: "Cormorant Garamond", fontBody: "Montserrat" } },
 ];
 ===== FILE: src/lib/themes/demo.ts =====
 
@@ -10703,11 +11076,11 @@ export const PRO_THEMES: Theme[] = [
   { id: "rose-poudre", name: "Rose poudré", plan: "pro", layout: "cards", buttonStyle: "soft", header: "center", avatarShape: "circle", dark: false, fonts: ["Playfair+Display:wght@500;600;700", "Inter:wght@400;500;600;700"], tokens: { bg: "#F4EEEA", surface: "#EADCD6", text: "#231C1A", muted: "#7A6A64", accent: "#A67C70", accent2: "#B8938A", onAccent: "#2B2321", border: "#E3D3CC", radius: "14px", shadow: "none", headerBg: "#EADCD6", fontDisplay: "Playfair Display", fontBody: "Inter" } },
   { id: "nude-soyeux", name: "Nude soyeux", plan: "pro", layout: "cards", buttonStyle: "neu", header: "cover", avatarShape: "circle", dark: false, uppercaseName: false, fonts: ["Cormorant+Garamond:wght@500;600;700", "Inter:wght@400;500;600"], tokens: { bg: "linear-gradient(135deg,#F5ECE6,#F0E3DC)", surface: "#F8F2EE", text: "#5E4528", muted: "#8C7456", accent: "#8A6A45", accent2: "#B89B7A", onAccent: "#FFFFFF", border: "#EADFD7", radius: "26px", shadow: "0 10px 22px -10px rgba(120,86,60,.35), inset 0 1px 0 rgba(255,255,255,.85)", headerBg: "linear-gradient(135deg,#EAD9CC,#F5ECE6)", fontDisplay: "Cormorant Garamond", fontBody: "Inter" } },
   { id: "foret", name: "Forêt", plan: "pro", layout: "cards", buttonStyle: "soft", header: "cover", avatarShape: "circle", dark: true, fonts: ["Inter:wght@400;500;600;700;800"], tokens: { bg: "radial-gradient(ellipse at 50% -10%,#1E3B1F 0%,#0B140C 55%,#070D08 100%)", surface: "#0F1B11", text: "#F2F7EE", muted: "#9DB09A", accent: "#6CAF35", accent2: "#3F8B3A", onAccent: "#FFFFFF", border: "#223826", radius: "16px", shadow: "0 10px 30px -12px rgba(108,175,53,.45)", headerBg: "linear-gradient(180deg,#1A2E1B,#0B140C)", fontDisplay: "Inter", fontBody: "Inter" } },
-  { id: "mandarine", name: "Mandarine", plan: "pro", layout: "pills", buttonStyle: "glass", header: "center", avatarShape: "circle", dark: true, fonts: ["Open+Sans:wght@400;600;700"], tokens: { bg: "linear-gradient(180deg,#F96A16 0%,#C24A0B 45%,#8E2A06 100%)", surface: "#A8451A", text: "#FFFFFF", muted: "#FFE1CC", accent: "#FFFFFF", accent2: "#FFD9B8", onAccent: "#7A2A05", border: "rgba(255,170,110,0.7)", radius: "999px", shadow: "0 8px 18px -6px rgba(0,0,0,.35)", headerBg: "#F96A16", fontDisplay: "Open Sans", fontBody: "Open Sans" } },
+  { id: "mandarine", name: "Mandarine", plan: "pro", layout: "pills", buttonStyle: "glass", header: "center", avatarShape: "circle", dark: true, popularSocials: true, fonts: ["Open+Sans:wght@400;600;700"], tokens: { bg: "linear-gradient(180deg,#F96A16 0%,#C24A0B 45%,#8E2A06 100%)", surface: "#A8451A", text: "#FFFFFF", muted: "#FFE1CC", accent: "#FFFFFF", accent2: "#FFD9B8", onAccent: "#7A2A05", border: "rgba(255,170,110,0.7)", radius: "999px", shadow: "0 8px 18px -6px rgba(0,0,0,.35)", headerBg: "#F96A16", fontDisplay: "Open Sans", fontBody: "Open Sans" } },
   { id: "or-noir", name: "Or noir", plan: "pro", layout: "pills", buttonStyle: "outline", header: "center", avatarShape: "circle", dark: true, uppercaseName: true, fonts: ["Montserrat:wght@500;600;700;800", "Poppins:wght@400;500;600"], tokens: { bg: "radial-gradient(circle at 90% 35%,rgba(212,160,23,.22),transparent 38%),#0A0A0A", surface: "#141414", text: "#E3B04B", muted: "#C9C2B5", accent: "#E8B33A", accent2: "#B8860B", onAccent: "#1A1200", border: "#E8B33A", radius: "14px", shadow: "none", headerBg: "#141414", fontDisplay: "Montserrat", fontBody: "Poppins" } },
-  { id: "opera", name: "Opéra", plan: "pro", layout: "pills", buttonStyle: "gradient", header: "cover", avatarShape: "rounded", dark: true, uppercaseLinks: true, tracking: "0.08em", fonts: ["Playfair+Display:wght@500;600;700", "Inter:wght@400;500;600;700"], tokens: { bg: "linear-gradient(180deg,#1A1A1A,#050505)", surface: "#141414", text: "#F5F5F5", muted: "#B5B5B5", accent: "#B01E1E", accent2: "#5E0808", onAccent: "#FFFFFF", border: "#2B2B2B", radius: "6px", shadow: "0 8px 20px -10px rgba(176,30,30,.6)", headerBg: "linear-gradient(180deg,#2A2A2A,#0B0B0B)", fontDisplay: "Playfair Display", fontBody: "Inter" } },
+  { id: "opera", name: "Opéra", plan: "pro", layout: "pills", buttonStyle: "gradient", header: "cover", avatarShape: "rounded", dark: true, uppercaseLinks: true, tracking: "0.08em", popularSocials: true, fonts: ["Playfair+Display:wght@500;600;700", "Inter:wght@400;500;600;700"], tokens: { bg: "linear-gradient(180deg,#1A1A1A,#050505)", surface: "#141414", text: "#F5F5F5", muted: "#B5B5B5", accent: "#B01E1E", accent2: "#5E0808", onAccent: "#FFFFFF", border: "#2B2B2B", radius: "6px", shadow: "0 8px 20px -10px rgba(176,30,30,.6)", headerBg: "linear-gradient(180deg,#2A2A2A,#0B0B0B)", fontDisplay: "Playfair Display", fontBody: "Inter" } },
   { id: "vert-coach", name: "Coach vert", plan: "pro", layout: "cards", buttonStyle: "soft", header: "center", avatarShape: "circle", dark: false, uppercaseLinks: true, tracking: "0.02em", fonts: ["Montserrat:wght@500;600;700;800", "Poppins:wght@400;500;600"], tokens: { bg: "#F6F7F5", surface: "#FFFFFF", text: "#111111", muted: "#5F6B5C", accent: "#3FA535", accent2: "#2F8F2B", onAccent: "#FFFFFF", border: "#1A1A1A", radius: "10px", shadow: "none", headerBg: "#3FA535", fontDisplay: "Montserrat", fontBody: "Poppins" } },
-  { id: "emerald-fitness", name: "Emerald Fitness", plan: "pro", layout: "cards", buttonStyle: "soft", header: "cover", avatarShape: "circle", dark: true, fonts: ["Inter:wght@400;500;600;700;800"], tokens: { bg: "radial-gradient(ellipse at 50% 0%,#19351F 0%,#07110C 48%,#020805 100%)", surface: "#102016", text: "#F4F7F0", muted: "#B8C5B2", accent: "#9AD33B", accent2: "#3E9A45", onAccent: "#FFFFFF", border: "#263D2C", radius: "18px", shadow: "0 8px 24px -12px rgba(120,190,54,.32)", headerBg: "#142A1A", fontDisplay: "Inter", fontBody: "Inter" } },
+  { id: "emerald-fitness", name: "Emerald Fitness", plan: "pro", layout: "cards", buttonStyle: "soft", header: "cover", avatarShape: "circle", dark: true, popularSocials: true, fonts: ["Inter:wght@400;500;600;700;800"], tokens: { bg: "radial-gradient(ellipse at 50% 0%,#19351F 0%,#07110C 48%,#020805 100%)", surface: "#102016", text: "#F4F7F0", muted: "#B8C5B2", accent: "#9AD33B", accent2: "#3E9A45", onAccent: "#FFFFFF", border: "#263D2C", radius: "18px", shadow: "0 8px 24px -12px rgba(120,190,54,.32)", headerBg: "#142A1A", fontDisplay: "Inter", fontBody: "Inter" } },
 ];
 ===== FILE: src/lib/themes/registry.ts =====
 
@@ -10827,8 +11200,14 @@ export type LinkLayout = "pills" | "cards" | "grid" | "banners";
 /** Style des boutons / cartes. */
 export type ButtonStyle = "solid" | "outline" | "glass" | "soft" | "neu" | "gradient";
 /** Variantes d'en-tête. */
-export type HeaderVariant = "center" | "cover" | "arc";
+export type HeaderVariant = "center" | "cover" | "arc" | "portrait";
 export type AvatarShape = "circle" | "blob" | "rounded";
+/** Côté d'ancrage des images détourées (popout). */
+export type PopoutSide = "left" | "right" | "alternate";
+/** Ornements d'arrière-plan. */
+export type Decor = "none" | "halo" | "leaves" | "curves";
+/** Mode d'affichage de l'image d'un lien. */
+export type ImageMode = "cover" | "popout" | "contain";
 
 /** Valeurs CSS pures : tout le look d'un thème tient ici. */
 export interface ThemeTokens {
@@ -10861,6 +11240,15 @@ export interface Theme {
   tracking?: string;
   /** Polices Google, format API css2 : "Playfair+Display:wght@400;700". */
   fonts: string[];
+  /** Côté d'ancrage des images popout (défaut : alternate). */
+  popoutSide?: PopoutSide;
+  /** Ornement d'arrière-plan (défaut : none). */
+  decor?: Decor;
+  /**
+   * Rangée de réseaux compacte avec les 6 majeurs d'abord
+   * (Facebook, Instagram, TikTok, X, YouTube, LinkedIn), les autres ensuite.
+   */
+  popularSocials?: boolean;
   tokens: ThemeTokens;
 }
 
@@ -10892,6 +11280,8 @@ export interface LinkItem {
   url: string;
   icon?: string;
   image?: string;
+  /** Mode d'affichage de l'image (défaut : cover). */
+  imageMode?: ImageMode;
   cta?: string;
   featured?: boolean;
   enabled?: boolean;
@@ -10927,118 +11317,8 @@ export interface Profile {
   bio?: string;
   avatarUrl?: string;
   coverUrl?: string;
-  verified?: boolean;
-  themeId: string;
-  customTokens?: CustomTokens;
-  socials: Social[];
-  links: LinkItem[];
-  blocks?: Block[];
-  showBadge?: boolean;
-}
-===== FILE: src/lib/types.ts =====
-
-import type { Plan } from "./plans";
-export type { Plan };
-
-/** Les 4 familles de mise en page des liens. */
-export type LinkLayout = "pills" | "cards" | "grid" | "banners";
-/** Style des boutons / cartes. */
-export type ButtonStyle = "solid" | "outline" | "glass" | "soft" | "neu" | "gradient";
-/** Variantes d'en-tête. */
-export type HeaderVariant = "center" | "cover" | "arc";
-export type AvatarShape = "circle" | "blob" | "rounded";
-
-/** Valeurs CSS pures : tout le look d'un thème tient ici. */
-export interface ThemeTokens {
-  bg: string;
-  surface: string;
-  text: string;
-  muted: string;
-  accent: string;
-  accent2: string;
-  onAccent: string;
-  border: string;
-  radius: string;
-  shadow: string;
-  headerBg: string;
-  fontDisplay: string;
-  fontBody: string;
-}
-
-export interface Theme {
-  id: string;
-  name: string;
-  plan: Plan;
-  layout: LinkLayout;
-  buttonStyle: ButtonStyle;
-  header: HeaderVariant;
-  avatarShape: AvatarShape;
-  dark: boolean;
-  uppercaseLinks?: boolean;
-  uppercaseName?: boolean;
-  tracking?: string;
-  /** Polices Google, format API css2 : "Playfair+Display:wght@400;700". */
-  fonts: string[];
-  tokens: ThemeTokens;
-}
-
-/** Ce qu'un utilisateur Pro peut surcharger (liste blanche). */
-export const CUSTOMIZABLE_KEYS = ["bg", "surface", "text", "accent", "accent2", "onAccent", "radius"] as const;
-export type CustomTokens = Partial<Pick<ThemeTokens, (typeof CUSTOMIZABLE_KEYS)[number]>>;
-
-/* ---------- Profil ---------- */
-export type SocialType =
-  | "instagram" | "tiktok" | "youtube" | "facebook" | "whatsapp"
-  | "x" | "linkedin" | "telegram" | "pinterest" | "email";
-
-export interface Social { type: SocialType; url: string }
-
-export interface LinkItem {
-  id: string;
-  title: string;
-  subtitle?: string;
-  url: string;
-  icon?: string;
-  image?: string;
-  cta?: string;
-  featured?: boolean;
-  enabled?: boolean;
-}
-
-/* ---------- Blocs de contenu ---------- */
-export type Block =
-  | { type: "about"; title: string; text: string }
-  | { type: "stats"; items: { value: string; label: string }[] }
-  | { type: "faq"; items: { q: string; a: string }[] }
-  | { type: "newsletter"; title: string; subtitle?: string }
-  /** Carte offre : badge, titre, description, visuel ou widget date, CTA (designs 1, 6, 7, 8, 10). */
-  | {
-      type: "offer";
-      tag?: string;
-      title: string;
-      desc?: string;
-      icon?: string;
-      emoji?: string;
-      image?: string;
-      dateLabel?: string;
-      dateValue?: string;
-      cta?: string;
-      url?: string;
-    }
-  /** Carte contact / adresse (design 1). */
-  | { type: "contact"; icon?: string; emoji?: string; title: string; text?: string; url?: string }
-  /** Appel à l'action centré : « Clique nos ícones » (designs 4, 5). */
-  | { type: "hint"; emoji?: string; label: string }
-  /** Séparateur typographié : « — Conecte-se — » (design 3). */
-  | { type: "separator"; label?: string };
-
-export interface Profile {
-  slug: string;
-  displayName: string;
-  headline?: string;
-  bio?: string;
-  avatarUrl?: string;
-  coverUrl?: string;
+  /** Grand portrait détouré de l'en-tête « portrait » (PNG/WebP transparent). */
+  heroUrl?: string;
   verified?: boolean;
   themeId: string;
   customTokens?: CustomTokens;

@@ -10,6 +10,8 @@ export type DbProfile = {
   bio: string | null;
   avatar_url: string | null;
   cover_url: string | null;
+  hero_url: string | null;
+  country: string | null;
   theme_id: string;
   created_at?: string;
   [key: string]: unknown;
@@ -27,6 +29,7 @@ export type DbLink = {
   position: number;
   subtitle?: string | null;
   image_url?: string | null;
+  image_mode?: "cover" | "popout" | "contain" | null;
   cta?: string | null;
   featured?: boolean | null;
 };
