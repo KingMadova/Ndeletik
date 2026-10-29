@@ -1,25 +1,21 @@
 "use client";
 
-import { useMemo } from "react";
-import Link from "next/link";
+import { Component, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
-import { ChevronRight, Eye, Globe2, Link2, MousePointerClick, Users } from "lucide-react";
-import { Card, CardTitle } from "@/components/ui/Card";
-import { buttonClass } from "@/components/ui/Button";
-import { PageHeader } from "@/components/ui/PageHeader";
-import { ProfileAvatar } from "@/components/dashboard/ProfileAvatar";
-import { useAdmin } from "@/components/admin/AdminProvider";
-import { PlanDot } from "@/components/admin/bits";
-import { MapBoundary, PlanDonut, Sparkline } from "@/components/admin/charts";
-import { computeStats } from "@/components/admin/stats";
-import { PLAN_COLORS, PLAN_ORDER, fmt, fmtDate } from "@/lib/admin-types";
+import {
+  Users, Link2, MousePointerClick, Eye, ArrowLeft, ExternalLink, Crown, Trash2, Shield,
+  Globe2, Search, Download, FilterX,
+} from "lucide-react";
+import { supabase } from "@/lib/supabaseClient";
+import { useToast } from "@/components/dashboard/Toast";
+import { getCoords } from "@/lib/countryCoords";
 
-const WorldMap = dynamic(() => import("@/components/admin/WorldMap").then((m) => m.WorldMap), {
-  ssr: false,
-  loading: () => <div className="h-64 animate-pulse rounded-xl bg-soft" />,
-});
+const WorldMap = dynamic(
+  () => import("@/components/admin/WorldMap").then((m) => m.WorldMap),
+  { ssr: false, loading: () => <div className="h-64 rounded-xl bg-soft animate-pulse" /> }
+);
 
-<<<<<<< HEAD
 const PLAN_COLORS: Record<string, string> = { free: "#F9A825", pro: "#FF6A1A", business: "#C1440E" };
 const PLAN_LABELS: Record<string, string> = { free: "Gratuit", pro: "Pro", business: "Business" };
 const PLAN_ORDER = ["free", "pro", "business"];
@@ -403,23 +399,15 @@ export default function AdminPage() {
 
   const topCountries = [...countryAgg.values()].sort((a, b) => b.total - a.total).slice(0, 5);
   const maxCountry = Math.max(1, ...topCountries.map((c) => c.total));
-=======
-export default function AdminOverviewPage() {
-  const { rows } = useAdmin();
-  const s = useMemo(() => computeStats(rows), [rows]);
-  const latest = useMemo(() => [...rows].sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at)).slice(0, 6), [rows]);
-  const maxCountry = Math.max(1, ...s.topCountries.map((c) => c.total));
->>>>>>> origin/master
 
   const kpis = [
-    { icon: Users, label: "Créateurs inscrits", value: s.totals.users, sub: `+${s.buckets[7]} cette semaine`, spark: true },
-    { icon: Link2, label: "Liens publiés", value: s.totals.links, sub: "tous créateurs confondus" },
-    { icon: MousePointerClick, label: "Clics cumulés", value: s.totals.clicks, sub: "tous liens confondus" },
-    { icon: Eye, label: "Vues cumulées", value: s.totals.views, sub: "pages publiques" },
+    { icon: Users, label: "Créateurs inscrits", value: totals.users, sub: `+${buckets[7]} cette semaine`, spark: true },
+    { icon: Link2, label: "Liens publiés", value: totals.links, sub: "tous créateurs confondus", spark: false },
+    { icon: MousePointerClick, label: "Clics cumulés", value: totals.clicks, sub: "tous liens confondus", spark: false },
+    { icon: Eye, label: "Vues cumulées", value: totals.views, sub: "pages publiques", spark: false },
   ];
 
   return (
-<<<<<<< HEAD
     <div className="min-h-screen bg-[#F6F7FB] text-slate-900">
       <div className="mx-auto max-w-[1400px] space-y-7">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -441,23 +429,9 @@ export default function AdminOverviewPage() {
             <ArrowLeft size={14} /> Mon dashboard
           </a>
         </div>
-=======
-    <>
-      <PageHeader
-        title="Vue d'ensemble"
-        description="L'activité de Ndeletik en un coup d'œil."
-        actions={
-          <Link href="/admin/users" className={buttonClass({ variant: "secondary" })}>
-            <Users size={16} aria-hidden /> Voir les utilisateurs
-          </Link>
-        }
-      />
->>>>>>> origin/master
 
-      <div className="space-y-6">
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {kpis.map((k) => (
-<<<<<<< HEAD
             <div key={k.label} className="group rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md">
               <span className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
                 <k.icon size={16} />
@@ -470,53 +444,33 @@ export default function AdminOverviewPage() {
                 <>
                   <Sparkline data={buckets} />
                   <div className="text-[11px] font-semibold text-emerald-600">{k.sub}</div>
-=======
-            <Card key={k.label} className="p-4">
-              <span className="mb-2 flex h-8 w-8 items-center justify-center rounded-lg bg-fractal-ocre/10 text-fractal-ocre">
-                <k.icon size={16} aria-hidden />
-              </span>
-              <div className="font-display text-2xl font-extrabold">{fmt(k.value)}</div>
-              <div className="text-xs text-muted">{k.label}</div>
-              {k.spark ? (
-                <>
-                  <Sparkline data={s.buckets} />
-                  <div className="text-[11px] font-medium text-fractal-terra">{k.sub}</div>
->>>>>>> origin/master
                 </>
               ) : (
                 <div className="mt-2 text-[11px] text-slate-400">{k.sub}</div>
               )}
-            </Card>
+            </div>
           ))}
         </div>
 
-<<<<<<< HEAD
         <div className="grid lg:grid-cols-[1.6fr_1fr] gap-4">
           <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm">
-=======
-        <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
-          <Card>
->>>>>>> origin/master
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="flex items-center gap-2 font-display text-sm font-bold">
-                <Globe2 size={16} className="text-fractal-ocre" aria-hidden /> Abonnés par pays
+              <h2 className="flex items-center gap-2 text-sm font-semibold">
+                <Globe2 size={16} className="text-fractal-ocre" /> Abonnés par pays
               </h2>
-<<<<<<< HEAD
               <span className="text-xs font-medium text-slate-500">{markers.length} zone(s) active(s)</span>
-=======
-              <span className="text-xs text-muted">{s.markers.length} zone(s) active(s)</span>
->>>>>>> origin/master
             </div>
             <MapBoundary>
-              <WorldMap markers={s.markers} />
+              <WorldMap markers={markers} />
             </MapBoundary>
-            {s.unlocated > 0 && (
-              <p className="mt-2 text-[11px] text-muted">{s.unlocated} profil(s) sans pays reconnu ne sont pas placés sur la carte.</p>
+            {unlocated > 0 && (
+              <p className="mt-2 text-[11px] text-muted">
+                {unlocated} profil(s) sans pays reconnu ne sont pas placés sur la carte.
+              </p>
             )}
-          </Card>
+          </div>
 
           <div className="space-y-4">
-<<<<<<< HEAD
             <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm">
               <h2 className="mb-4 text-sm font-semibold">Répartition des abonnements</h2>
               <PlanDonut counts={planCounts} />
@@ -525,20 +479,13 @@ export default function AdminOverviewPage() {
               <h2 className="mb-4 text-sm font-semibold">Top pays</h2>
               {topCountries.length === 0 ? (
                 <p className="mt-1 text-sm text-slate-500">Aucune donnée de pays pour le moment.</p>
-=======
-            <Card>
-              <CardTitle>Répartition des abonnements</CardTitle>
-              <PlanDonut counts={s.planCounts} />
-            </Card>
-            <Card>
-              <CardTitle>Top pays</CardTitle>
-              {s.topCountries.length === 0 ? (
-                <p className="text-xs text-muted">Aucune donnée de pays pour le moment.</p>
->>>>>>> origin/master
               ) : (
                 <ul className="space-y-3">
-                  {s.topCountries.map((c) => {
-                    const dominant = PLAN_ORDER.reduce((a, b) => ((c.plans[a] ?? 0) >= (c.plans[b] ?? 0) ? a : b), "free");
+                  {topCountries.map((c) => {
+                    const dominant = PLAN_ORDER.reduce(
+                      (a, b) => ((c.plans[a] ?? 0) >= (c.plans[b] ?? 0) ? a : b),
+                      "free"
+                    );
                     return (
                       <li key={c.country}>
                         <div className="mb-1 flex justify-between text-sm">
@@ -556,11 +503,10 @@ export default function AdminOverviewPage() {
                   })}
                 </ul>
               )}
-            </Card>
+            </div>
           </div>
         </div>
 
-<<<<<<< HEAD
         <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-5">
             <h2 className="text-sm font-semibold">
@@ -715,36 +661,6 @@ export default function AdminOverviewPage() {
             </table>
           </div>
         </div>
-=======
-        <Card padded={false}>
-          <div className="flex items-center justify-between px-5 pb-2 pt-5">
-            <h2 className="font-display text-sm font-bold">Dernières inscriptions</h2>
-            <Link href="/admin/users" className="text-xs font-semibold text-fractal-terra hover:underline">
-              Tout voir
-            </Link>
-          </div>
-          <ul className="divide-y divide-line">
-            {latest.map((r) => (
-              <li key={r.id}>
-                <Link href={`/admin/users/${r.id}`} className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-soft/60">
-                  <ProfileAvatar profile={r} size={36} />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold">@{r.slug}</p>
-                    <p className="truncate text-xs text-muted">
-                      {r.display_name} · {fmtDate(r.created_at)}
-                    </p>
-                  </div>
-                  <span className="hidden sm:block">
-                    <PlanDot plan={r.plan} />
-                  </span>
-                  <ChevronRight size={16} className="text-muted" aria-hidden />
-                </Link>
-              </li>
-            ))}
-            {latest.length === 0 && <li className="px-5 py-8 text-center text-sm text-muted">Aucune inscription pour le moment.</li>}
-          </ul>
-        </Card>
->>>>>>> origin/master
 
         <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-6 text-center">
           <p className="text-sm font-semibold">Revenus Mobile Money</p>
@@ -753,6 +669,7 @@ export default function AdminOverviewPage() {
           </p>
         </div>
       </div>
-    </>
+      {toastNode}
+    </div>
   );
 }
