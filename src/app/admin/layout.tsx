@@ -1,5 +1,8 @@
-"use client";
+import type { Metadata } from "next";
+import { AdminProvider } from "@/components/admin/AdminProvider";
+import { AdminShell } from "@/components/admin/AdminShell";
 
+<<<<<<< HEAD
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
@@ -11,16 +14,15 @@ type Tab = {
   label: string;
   href: string;
   icon: any;
+=======
+export const metadata: Metadata = {
+  title: "Administration",
+  robots: { index: false, follow: false },
+>>>>>>> origin/master
 };
 
-const TABS: Tab[] = [
-  { id: "users", label: "Utilisateurs", href: "/admin", icon: Users },
-  { id: "stats", label: "Statistiques", href: "/admin/stats", icon: BarChart3 },
-  { id: "themes", label: "Thèmes", href: "/admin/themes", icon: Palette },
-  { id: "settings", label: "Paramètres", href: "/admin/settings", icon: Settings },
-];
-
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
+<<<<<<< HEAD
   const router = useRouter();
   const pathname = usePathname();
   const [user, setUser] = useState<any>(null);
@@ -219,5 +221,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
       </nav>
     </div>
+=======
+  return (
+    <AdminProvider>
+      <AdminShell>{children}</AdminShell>
+    </AdminProvider>
+>>>>>>> origin/master
   );
 }

@@ -9,6 +9,7 @@ import { detectIcon } from "@/lib/detect-icon";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Button } from "@/components/ui/Button";
 import { Field, Switch, inputClass } from "@/components/ui/Field";
+import { LinkImageField } from "@/components/editor/LinkImageField";
 import { getBlockMeta, normalizeUrl } from "./blockMeta";
 import { useToast } from "./Toast";
 
@@ -65,7 +66,6 @@ export function LinkItem({ link, onUpdate, onDelete, onDragEnd, onShowAnalytics 
         >
           <GripVertical size={18} aria-hidden />
         </button>
-
         <span
           className={clsx(
             "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white shadow-soft",
@@ -75,7 +75,6 @@ export function LinkItem({ link, onUpdate, onDelete, onDragEnd, onShowAnalytics 
         >
           <Icon size={18} aria-hidden />
         </span>
-
         <div className={clsx("min-w-0 flex-1", !link.enabled && "opacity-60")}>
           <p className="truncate text-sm font-semibold text-ink">{link.title}</p>
           <p className="truncate text-xs text-muted">
@@ -83,7 +82,6 @@ export function LinkItem({ link, onUpdate, onDelete, onDragEnd, onShowAnalytics 
             {link.url.replace(/^https?:\/\//, "")}
           </p>
         </div>
-
         <button
           type="button"
           onClick={() => onShowAnalytics?.(link)}
@@ -93,13 +91,11 @@ export function LinkItem({ link, onUpdate, onDelete, onDragEnd, onShowAnalytics 
         >
           <BarChart3 size={13} aria-hidden /> {link.clicks} clic{link.clicks > 1 ? "s" : ""}
         </button>
-
         <Switch
           checked={link.enabled}
           onChange={(v) => onUpdate(link.id, { enabled: v })}
           label={link.enabled ? "Masquer ce lien de ma page" : "Publier ce lien sur ma page"}
         />
-
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
@@ -134,6 +130,14 @@ export function LinkItem({ link, onUpdate, onDelete, onDragEnd, onShowAnalytics 
                   className={inputClass}
                 />
               </Field>
+              {/* Image du lien : cover (fond), popout (détourée qui déborde), contain (entière) */}
+              <LinkImageField
+                kind="link"
+                value={link.image_url ?? null}
+                mode={link.image_mode ?? "cover"}
+                onImage={(u) => onUpdate(link.id, { image_url: u })}
+                onMode={(m) => onUpdate(link.id, { image_mode: m })}
+              />
               <div className="flex flex-wrap items-center gap-2 pt-1">
                 <Button variant="danger" size="sm" onClick={() => setConfirming(true)}>
                   <Trash2 size={14} aria-hidden /> Supprimer

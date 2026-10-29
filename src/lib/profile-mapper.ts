@@ -1,7 +1,7 @@
 import { sanitizeCustomTokens } from "./entitlements";
 import type { Plan } from "./plans";
 import { safeImageUrl, safeUrl } from "./safe-url";
-import type { Block, LinkItem, Profile, Social, SocialType } from "./themes/types";
+import type { Block, ImageMode, LinkItem, Profile, Social, SocialType } from "./themes/types";
 
 const SOCIALS: SocialType[] = [
   "instagram", "tiktok", "youtube", "facebook", "whatsapp",
@@ -12,6 +12,9 @@ const str = (v: unknown, max = 500) => (typeof v === "string" ? v.slice(0, max) 
 const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
 const iconKey = (v: unknown) => (typeof v === "string" && /^[a-z]{2,20}$/.test(v) ? v : undefined);
 const emoji = (v: unknown) => (typeof v === "string" ? v.slice(0, 16) : undefined);
+/** Seul popout/contain est stocké explicitement ; cover est le défaut. */
+const imageMode = (v: unknown): ImageMode | undefined =>
+  v === "popout" || v === "contain" ? v : undefined;
 
 function toBlocks(raw: unknown): Block[] {
   const out: Block[] = [];
@@ -82,6 +85,7 @@ export function toProfile(payload: any): { profile: Profile; plan: Plan } {
     url: str(l.url, 2048),
     icon: l.icon ?? undefined,
     image: safeImageUrl(l.image_url),
+    imageMode: imageMode(l.image_mode),
     cta: str(l.cta, 24) || undefined,
     featured: !!l.featured,
     enabled: l.enabled !== false,
@@ -95,6 +99,7 @@ export function toProfile(payload: any): { profile: Profile; plan: Plan } {
       bio: str(p.bio, 400) || undefined,
       avatarUrl: safeImageUrl(p.avatar_url),
       coverUrl: safeImageUrl(p.cover_url),
+      heroUrl: safeImageUrl(p.hero_url),
       verified: !!p.verified,
       showBadge: p.show_badge !== false,
       themeId: p.theme_id,

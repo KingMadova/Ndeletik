@@ -2,14 +2,36 @@ name: Supabase Keep-Alive Ping
 
 on:
   schedule:
-    # Exécute ce script tous les 3 jours à 10h00 UTC
-    - cron: '0 10 */3 * *'
-  workflow_dispatch: # Permet de le lancer manuellement depuis l'onglet Actions de GitHub
+    - cron: '0 */5 * * *'   # toutes les 5 heures
+  workflow_dispatch:
 
 jobs:
   ping-supabase:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping Vercel Keep-Alive Endpoint
+      - name: Check env
         run: |
-          curl -f ${{ secrets.KEEP_ALIVE_URL }} || exit 1
+          echo "URL principale : ${NEXT_PUBLIC_SITE_URL:-non définie}"
+          echo "Fallback        : https://ndeletik.vercel.app"
+        env:
+          NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+
+      - name: Ping keep-alive (avec détails)
+        run: |
+          URL="${NEXT_PUBLIC_SITE_URL:-https://ndeletik.vercel.app}/api/keep-alive"
+          echo "➡️  GET $URL"
+          HTTP_CODE=$(curl -s -o response.txt -w "%{http_code}" -X GET "$URL")
+          echo "⬅️  HTTP $HTTP_CODE"
+          cat response.txt
+          echo
+          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+            echo "✅ Keep-alive OK"
+          elif [ "$HTTP_CODE" = "500" ]; then
+            echo "⚠️  Supabase est probablement en pause. Réactive-le sur supabase.com/dashboard"
+            exit 1
+          else
+            echo "❌ Erreur HTTP inattendue"
+            exit 1
+          fi
+        env:
+          NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}

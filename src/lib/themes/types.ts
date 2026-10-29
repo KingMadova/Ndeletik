@@ -6,8 +6,14 @@ export type LinkLayout = "pills" | "cards" | "grid" | "banners";
 /** Style des boutons / cartes. */
 export type ButtonStyle = "solid" | "outline" | "glass" | "soft" | "neu" | "gradient";
 /** Variantes d'en-tête. */
-export type HeaderVariant = "center" | "cover" | "arc";
+export type HeaderVariant = "center" | "cover" | "arc" | "portrait";
 export type AvatarShape = "circle" | "blob" | "rounded";
+/** Côté d'ancrage des images détourées (popout). */
+export type PopoutSide = "left" | "right" | "alternate";
+/** Ornements d'arrière-plan. */
+export type Decor = "none" | "halo" | "leaves" | "curves";
+/** Mode d'affichage de l'image d'un lien. */
+export type ImageMode = "cover" | "popout" | "contain";
 
 /** Valeurs CSS pures : tout le look d'un thème tient ici. */
 export interface ThemeTokens {
@@ -40,6 +46,15 @@ export interface Theme {
   tracking?: string;
   /** Polices Google, format API css2 : "Playfair+Display:wght@400;700". */
   fonts: string[];
+  /** Côté d'ancrage des images popout (défaut : alternate). */
+  popoutSide?: PopoutSide;
+  /** Ornement d'arrière-plan (défaut : none). */
+  decor?: Decor;
+  /**
+   * Rangée de réseaux compacte avec les 6 majeurs d'abord
+   * (Facebook, Instagram, TikTok, X, YouTube, LinkedIn), les autres ensuite.
+   */
+  popularSocials?: boolean;
   tokens: ThemeTokens;
 }
 
@@ -71,6 +86,8 @@ export interface LinkItem {
   url: string;
   icon?: string;
   image?: string;
+  /** Mode d'affichage de l'image (défaut : cover). */
+  imageMode?: ImageMode;
   cta?: string;
   featured?: boolean;
   enabled?: boolean;
@@ -106,6 +123,8 @@ export interface Profile {
   bio?: string;
   avatarUrl?: string;
   coverUrl?: string;
+  /** Grand portrait détouré de l'en-tête « portrait » (PNG/WebP transparent). */
+  heroUrl?: string;
   verified?: boolean;
   themeId: string;
   customTokens?: CustomTokens;
