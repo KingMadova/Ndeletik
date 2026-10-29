@@ -6,7 +6,6 @@
 .nd-col { width: 100%; max-width: 440px; padding: 0 20px 32px; display: flex; flex-direction: column; align-items: center; gap: 16px; }
 /* ---------- En-tête ---------- */
 .nd-header { position: relative; width: calc(100% + 40px); margin: 0 -20px; padding: 44px 20px 0; display: flex; flex-direction: column; align-items: center; text-align: center; }
-.nd-header > * { position: relative; z-index: 1; }
 .nd-avatar { width: 112px; height: 112px; object-fit: cover; border: 3px solid var(--p-accent); position: relative; z-index: 1; background: var(--p-surface); }
 .nd-avatar-fallback { display: grid; place-items: center; background: var(--p-accent); color: var(--p-on-accent); font: 800 2.4rem var(--p-font-display), sans-serif; }
 .nd-profile[data-avatar="circle"] .nd-avatar { border-radius: 50%; }
@@ -26,29 +25,6 @@
 .nd-socials { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 16px; }
 .nd-socials a { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 50%; background: var(--p-surface); border: 1px solid var(--p-border); font-size: 1rem; transition: transform 0.15s; }
 .nd-socials a:hover { transform: translateY(-2px); }
-/* ---------- En-tête portrait (visage détouré qui chevauche la zone 2) ---------- */
-.nd-profile[data-header="portrait"] .nd-header { padding-top: 30px; }
-.nd-portrait { display: flex; justify-content: center; margin: 10px 0 -58px; z-index: 2; }
-.nd-portrait-img { width: 190px; height: 230px; object-fit: contain; object-position: bottom center; filter: drop-shadow(0 12px 26px rgb(0 0 0 / .3)); }
-.nd-portrait-fallback { object-fit: cover; border-radius: 48% 48% 40% 40%; }
-.nd-portrait-init { display: grid; place-items: center; background: linear-gradient(180deg, var(--p-accent), var(--p-accent-2)); color: var(--p-on-accent); font: 800 4rem var(--p-font-display), sans-serif; border-radius: 48% 48% 40% 40%; }
-.nd-profile[data-header="portrait"] .nd-zone-main { padding-top: 64px; }
-/* ---------- Ornements (decor) ---------- */
-.nd-profile[data-decor="halo"] .nd-header::after { content: ""; position: absolute; top: -30px; left: 50%; transform: translateX(-50%); width: 280px; height: 280px; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--p-accent) 32%, transparent) 0%, transparent 68%); pointer-events: none; z-index: 0; }
-.nd-profile[data-decor="leaves"] .nd-header::after { content: ""; position: absolute; top: 0; right: 0; width: 150px; height: 150px; background: radial-gradient(ellipse at 30% 30%, color-mix(in srgb, var(--p-accent) 26%, transparent), transparent 70%); border-radius: 0 100% 0 100%; pointer-events: none; z-index: 0; }
-.nd-profile[data-decor="leaves"] .nd-header::before { content: ""; position: absolute; bottom: 0; left: 0; width: 130px; height: 130px; background: radial-gradient(ellipse at 70% 70%, color-mix(in srgb, var(--p-accent-2) 22%, transparent), transparent 70%); border-radius: 100% 0 100% 0; pointer-events: none; z-index: 0; }
-.nd-profile[data-decor="curves"] .nd-header::after { content: ""; position: absolute; left: -12%; right: -12%; bottom: -26px; height: 52px; border-radius: 100% 100% 0 0; background: color-mix(in srgb, var(--p-accent) 16%, transparent); pointer-events: none; z-index: 0; }
-/* ---------- Composition deux zones (thèmes Pro & Business uniquement) ---------- */
-/* Thèmes gratuits : la zone est transparente (display: contents) → rendu strictement identique à la galerie. */
-.nd-zone-main { display: contents; }
-/* Pro / Business : zone 1 = identité + réseaux ; zone 2 = conversion, séparée par un filet dégradé. */
-.nd-profile[data-parts="two"] .nd-zone-main { position: relative; display: flex; flex-direction: column; gap: 16px; width: 100%; margin-top: 14px; padding-top: 20px; }
-.nd-profile[data-parts="two"] .nd-zone-main::before { content: ""; position: absolute; top: 0; left: 8%; right: 8%; height: 1px; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--p-accent) 55%, transparent), transparent); }
-.nd-profile[data-parts="two"] .nd-header { padding-bottom: 6px; }
-.nd-profile[data-parts="two"] .nd-socials { margin-top: 18px; }
-/* ---------- Rangée réseaux compacte (option popularSocials : 6 majeurs d'abord) ---------- */
-.nd-profile[data-socials="popular"] .nd-socials { margin-top: 18px; gap: 8px; }
-.nd-profile[data-socials="popular"] .nd-socials a { width: 36px; height: 36px; font-size: 0.85rem; }
 /* ---------- Liens ---------- */
 .nd-links { width: 100%; display: flex; flex-direction: column; gap: 12px; }
 .nd-profile[data-layout="grid"] .nd-links { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
@@ -75,18 +51,6 @@
 .nd-banner-media { display: grid; place-items: center; background: linear-gradient(135deg, var(--p-accent), var(--p-accent-2)) center / cover no-repeat; color: var(--p-on-accent); }
 .nd-banner-body { display: flex; flex-direction: column; justify-content: center; align-items: flex-start; padding: 14px; }
 .nd-cta { margin-top: 10px; padding: 6px 14px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; background: var(--p-accent); color: var(--p-on-accent); }
-/* ---------- Images détourées (popout / contain) ---------- */
-.nd-media-contain { background-size: contain; background-repeat: no-repeat; background-position: center; }
-.nd-banner-popout { overflow: visible; margin-top: 36px; }
-.nd-banner-popout .nd-banner-media { overflow: visible; position: relative; }
-.nd-media-popout { background: linear-gradient(135deg, var(--p-accent), var(--p-accent-2)); }
-.nd-popout { position: absolute; bottom: -4px; left: 50%; transform: translateX(-50%); height: 134%; width: auto; max-width: 180%; object-fit: contain; object-position: bottom center; pointer-events: none; filter: drop-shadow(0 8px 16px rgb(0 0 0 / .3)); z-index: 2; }
-.nd-link-popout { overflow: visible; margin-top: 32px; }
-.nd-popout-card { position: absolute; bottom: -4px; height: 130%; width: auto; max-width: 46%; object-fit: contain; object-position: bottom center; pointer-events: none; filter: drop-shadow(0 8px 14px rgb(0 0 0 / .28)); z-index: 2; }
-.nd-popout-card.right { right: 4px; }
-.nd-popout-card.left { left: 4px; }
-.nd-link-popout.pad-right { padding-right: 76px; }
-.nd-link-popout.pad-left { padding-left: 76px; }
 /* ---------- Styles de boutons ---------- */
 .nd-profile[data-btn="solid"] :is(.nd-link, .nd-banner) { background: var(--p-accent); color: var(--p-on-accent); }
 .nd-profile[data-btn="outline"] :is(.nd-link, .nd-banner) { background: transparent; border: 1.5px solid var(--p-text); }
@@ -358,7 +322,6 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .nd-profile[data-theme="champagne-atelier"] .nd-link { transition: none; }
-<<<<<<< HEAD
 }
 
 
@@ -374,6 +337,3 @@
   .nd-profile[data-theme] .nd-socials { gap: 7px; }
   .nd-profile[data-theme] .nd-socials a { width: 38px; height: 38px; }
 }
-=======
-}
->>>>>>> origin/master
