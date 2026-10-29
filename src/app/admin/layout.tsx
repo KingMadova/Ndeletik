@@ -27,6 +27,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [accessError, setAccessError] = useState("");
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const checkAccess = async () => {
     setLoading(true);
@@ -79,8 +80,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }, []);
 
   const logout = async () => {
-    await supabase.auth.signOut();
-    router.replace("/auth");
+    if (loggingOut) return;
+    setLoggingOut(true);
+    setAccessError("");
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      router.replace("/auth?mode=login");
+      router.refresh();
+    } catch {
+      setAccessError("La déconnexion n’a pas abouti. Vérifiez votre connexion puis réessayez.");
+      setLoggingOut(false);
+    }
   };
 
   if (loading) {
@@ -135,6 +146,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="min-h-screen bg-[#F6F7FB] text-slate-900">
+      {accessError && <p role="alert" className="mx-auto mt-4 max-w-4xl rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{accessError}</p>}
+
       {/* Header */}
       <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur-xl">
         <div className="mx-auto max-w-[1500px] px-4 sm:px-6 py-3.5 flex items-center justify-between gap-4">
@@ -149,11 +162,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
 
           <button
-            onClick={logout}
+            onClick={() => void logout()}
+            disabled={loggingOut}
             aria-label="Déconnexion"
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 transition-colors"
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 transition-colors disabled:cursor-wait disabled:opacity-60"
           >
-            <LogOut size={16} /><span className="hidden sm:inline">Déconnexion</span>
+            <LogOut size={16} /><span className="hidden sm:inline">{loggingOut ? "Déconnexion…" : "Déconnexion"}</span>
           </button>
         </div>
       </header>
